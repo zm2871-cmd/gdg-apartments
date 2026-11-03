@@ -1,0 +1,47 @@
+{
+  "source": "hpd_violations",
+  "label": "large",
+  "address": "50-01 2nd St, Queens",
+  "bbl": "4000160008",
+  "query": {
+    "where": "bbl = '4000160008' AND (inspectiondate >= '2023-11-02T00:00:00' OR violationstatus = 'Open')",
+    "order": "inspectiondate DESC, violationid"
+  },
+  "captured_at": "2026-11-03T04:20:23.767Z",
+  "total_rows": 1,
+  "rows": [
+    {
+      "violationid": "18430422",
+      "buildingid": "949240",
+      "registrationid": "430946",
+      "boroid": "4",
+      "boro": "QUEENS",
+      "housenumber": "2-14",
+      "lowhousenumber": "2-02",
+      "highhousenumber": "2-24",
+      "streetname": "50 AVENUE",
+      "streetcode": "10790",
+      "zip": "11101",
+      "block": "16",
+      "lot": "8",
+      "class": "I",
+      "inspectiondate": "2025-11-21T00:00:00.000",
+      "approveddate": "2025-11-21T00:00:00.000",
+      "ordernumber": "780",
+      "novdescription": "§27-2107 ADM CODE OWNER FAILED TO FILE A VALID REGISTRATION STATEMENT WITH THE DEPARTMENT AS REQUIRED BY ADM CODE §27-2097 AND IS THEREFORE SUBJECT TO CIVIL PENALTIES, PROHIBITED FROM CERTIFYING VIOLATIONS, AND DENIED THE RIGHT TO RECOVER POSSESSION OF PREMISES FOR NONPAYMENT OF RENT UNTIL A VALID REGISTRATION STATEMENT IS FILED.",
+      "currentstatusid": "9",
+      "currentstatus": "VIOLATION DISMISSED",
+      "currentstatusdate": "2026-01-15T00:00:00.000",
+      "violationstatus": "Close",
+      "rentimpairing": "N",
+      "latitude": "40.743485",
+      "longitude": "-73.958095",
+      "communityboard": "2",
+      "councildistrict": "26",
+      "censustract": "101",
+      "bin": "4594739",
+      "bbl": "4000160008",
+      "nta": "Long Island City-Hunters Point"
+    }
+  ]
+}

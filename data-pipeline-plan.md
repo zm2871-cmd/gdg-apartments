@@ -241,6 +241,69 @@ create table source_fetches (
 
 **Done when:** every schema passes against every fixture; written-up answers exist for how condos and multi-building lots appear in each source.
 
+##### DATA-05 findings (November 2–3, 2026)
+
+**Test buildings** (fixtures in `tests/fixtures/<source>/<label>.json`; re-capture with `node --env-file=.env scripts/capture-fixtures.js`):
+
+| Label | Address | BBL | PLUTO units / buildings |
+|---|---|---|---|
+| `many-violations` | 2818 Bronx Park East, BX | `2045060040` | 680 / 6 |
+| `clean` | 109 Bruckner Blvd, BX | `2022780059` | 20 / 1 |
+| `large` | 50-01 2nd St, QN | `4000160008` | 199 / 1 |
+| `small` | 9 Carroll Place, SI | `5000030028` | 2 / 1 |
+| `nightlife` | 190 Orchard St, MN | `1004120010` | 17 / 1 |
+| `condo` | 39 Whitehall St, MN | `1000087501` | 97 / 1 |
+| `multi-building` | 281 Marcus Garvey Blvd, BK | `3016290001` | 175 / 6 |
+| `condo-multi-building` | 1580 Metropolitan Ave (Parkchester), BX | `2039437501` | 3,378 / 46 |
+
+Fixtures keep the newest 200 rows per query; `total_rows` records the full count.
+
+**How condos appear.** Every source uses the condo's billing BBL (`75xx` lot), never unit lots (`1001`–`6999`):
+
+| Source | Condo rows carry | Notes |
+|---|---|---|
+| GeoSearch | Billing BBL | `39 Whitehall St` → `1000087501`; Parkchester address → `2039437501` |
+| PLUTO | Billing BBL, one row | `unitsres` covers the whole condo |
+| HPD violations | Billing BBL | The 39 Whitehall violation is filed under "2 WATER STREET" |
+| HPD complaints | Billing BBL | Parkchester: 1,403 rows, all on `2039437501` |
+| Rodent | Billing BBL | Parkchester: 12 rows on `2039437501` |
+| Bedbug | Billing BBL | One filing per building per year |
+| 311 | Billing BBL | No unit-lot BBLs in any 311 fixture |
+
+So querying by the billing BBL that GeoSearch returns finds a condo's records; no unit-to-billing lookup is needed.
+
+**How multi-building lots appear.** Every BBL-scoped source puts all buildings on one BBL, separated only by BIN/`building_id`:
+
+| Lot | Violations BINs | Complaints BINs | Rodent BINs | Bedbug BINs |
+|---|---|---|---|---|
+| 281 Marcus Garvey Blvd (6 buildings) | 5 | 5 | 2 | 5 |
+| 2800 Bronx Park East (6 buildings) | 6 | 6 | 3 | 6 |
+| Parkchester (46 buildings, saved rows only) | 32 | 38 | 9 | 45 |
+
+- **The BIN GeoSearch returns is not a reliable filter.** For 281 Marcus Garvey Blvd, GeoSearch's BIN `3325012` matches 0 violation, complaint and bedbug rows, which all use 5 other BINs. Filtering by BIN would show that building as clean.
+- **Recommendation for DATA-06 and grading:** report per lot (BBL), which is what spec §5.2 queries, and show the PLUTO building count so users know a result covers several buildings. PLUTO `unitsres` is also per lot, so per-unit rates stay consistent. Parkchester-sized lots (46 buildings) will look worse per search than per building; grading should decide whether that needs a note.
+- 311 is radius-based, so it ignores lot boundaries; 311 rows near a condo carry the billing BBL.
+
+**Schema notes** (`lib/schemas.js`, checked by `tests/schemas.test.js`):
+- `novissueddate` is missing on 24 of 626 saved violation rows; `inspectiondate` was present on all, but stays optional because DATA-08 falls back between them.
+- Violation classes seen: A, B, C, I. Statuses: `Open`, `Close`.
+- 311: `bbl` missing on 199 of 1,600 saved rows; `resolution_description` missing on 54.
+- One bedbug row has no `filling_period_end_date`, which is part of DATA-11's default `source_id`.
+- Rodent results seen include `Bait applied`, which DATA-10 drops.
+
+**Citywide `group by bbl` timings with the app token** (single runs, first 1,000 groups ordered by count, November 3):
+
+| Query | With token | Without token (earlier) |
+|---|---|---|
+| Violations, all time | 14.1 s | 21 s |
+| Violations, last 3 years | 6.2 s (a similar query timed out at 180 s on November 2) | — |
+| 311 noise, last 12 months | 12.2 s | 110 s |
+| Rodent, last 2 years | Timed out at 140 s | Timed out at 120 s |
+
+- Timings vary a lot between runs, so precomputed baselines should not depend on a live citywide query finishing.
+- The largest 311 noise group is `bbl` null (51,069 rows): many noise complaints have no building.
+- The rodent grouped query still doesn't finish; grading baselines for rodents need another approach (smaller windows, per-borough queries, or a bulk export).
+
 #### DATA-06 — Resolve an address to a building · S
 **Depends on:** DATA-03, DATA-05
 
