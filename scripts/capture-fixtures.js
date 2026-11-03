@@ -1,6 +1,7 @@
 // Saves real responses from every source to tests/fixtures/<source>/<label>.json.
 // Run: node --env-file=.env scripts/capture-fixtures.js
 import { mkdir, writeFile } from 'node:fs/promises';
+import { geosearch } from '../lib/geosearch.js';
 import { querySocrata } from '../lib/socrata.js';
 import { dataset_ids, time_windows, three_one_one_search_radius } from '../lib/sources.js';
 
@@ -22,13 +23,6 @@ const BUILDINGS = [
 function cutoff(months) {
   const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()).split('-').map(Number);
   return new Date(Date.UTC(y, m - 1 - months, d)).toISOString().slice(0, 10) + 'T00:00:00';
-}
-
-async function geosearch(address) {
-  const url = 'https://geosearch.planninglabs.nyc/v2/search?' + new URLSearchParams({ text: address, size: 1 });
-  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
-  if (!res.ok) throw new Error(`GeoSearch "${address}": HTTP ${res.status}`);
-  return res.json();
 }
 
 function queriesFor({ bbl }, [lon, lat]) {
@@ -67,7 +61,7 @@ const captured_at = new Date().toISOString();
 const failures = [];
 
 for (const building of BUILDINGS) {
-  const geo = await geosearch(building.address);
+  const geo = await geosearch(building.address, 1);
   await save('geosearch', building.label, geo);
   const feature = geo.features?.[0];
   if (!feature) { failures.push(`${building.label}: GeoSearch found nothing`); continue; }
