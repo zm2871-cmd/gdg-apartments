@@ -6,7 +6,7 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "test": "vitest run --passWithNoTests"
+    "test": "node --env-file-if-exists=.env node_modules/vitest/vitest.mjs run --passWithNoTests"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
