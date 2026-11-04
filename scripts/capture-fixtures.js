@@ -3,7 +3,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { geosearch } from '../lib/geosearch.js';
 import { querySocrata } from '../lib/socrata.js';
-import { dataset_ids, time_windows, three_one_one_search_radius } from '../lib/sources.js';
+import { cutoff, dataset_ids, time_windows, three_one_one_search_radius } from '../lib/sources.js';
 
 const MAX_SAVED_ROWS = 200; // keeps big buildings' fixtures small; total_rows records the real count
 const OUT_DIR = new URL('../tests/fixtures/', import.meta.url);
@@ -18,12 +18,6 @@ const BUILDINGS = [
   { label: 'multi-building', address: '281 Marcus Garvey Blvd, Brooklyn', bbl: '3016290001' },
   { label: 'condo-multi-building', address: '1580 Metropolitan Ave, Bronx', bbl: '2039437501' },
 ];
-
-// NYC wall-clock cutoff with no zone suffix, matching how Socrata stores these dates.
-function cutoff(months) {
-  const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()).split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1 - months, d)).toISOString().slice(0, 10) + 'T00:00:00';
-}
 
 function queriesFor({ bbl }, [lon, lat]) {
   const boro = bbl[0], block = String(Number(bbl.slice(1, 6))), lot = String(Number(bbl.slice(6)));
