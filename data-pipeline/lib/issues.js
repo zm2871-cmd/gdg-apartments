@@ -31,16 +31,40 @@ function sourceStatus(source, record) {
 }
 
 /**
+ * Which numbers the report should lead with (decision-lot-vs-building.md, question 2).
+ * - The searched building's own, when HPD has records for it, or when HPD has no records anywhere on the lot.
+ * - The whole lot, with a note, when HPD files the lot's records under other buildings only.
+ */
+function headlineFor(matched, lotHpdIssues) {
+  if (matched || lotHpdIssues.length === 0) return { headline: 'building', note: null };
+  const others = new Set(lotHpdIssues.map((issue) => String(issue.raw?.bin)).filter((b) => b !== 'undefined')).size;
+  return {
+    headline: 'lot',
+    note: `The city files this lot's housing records under ${others === 1 ? 'another building' : `${others} other buildings`} `
+      + 'on the same lot, so these numbers cover the whole lot.',
+  };
+}
+
+/**
  * Reads a building's saved issues. Read only: no database rows change.
+ *
+ * `issues` covers the whole lot (BBL), which is what grading uses: PLUTO's unit counts are per lot.
+ * With a `bin`, `building` also gives the searched building's own issues (decision-lot-vs-building.md,
+ * option 2). `building.matched` is false when no HPD violation or complaint on the lot carries that BIN — e.g.
+ * 281 Marcus Garvey Blvd, whose GeoSearch BIN has no HPD records while the lot's apartments are filed under
+ * Gates Avenue. A genuinely clean building on a multi-building lot also has no HPD records, so matched=false
+ * means "can't tell this building apart", not "this building is clean".
  * @param {string} bbl
  * @param {import('@supabase/supabase-js').SupabaseClient} db
+ * @param {{ bin?: string | null }} [options]
  * @returns {Promise<{
  *   issues: import('./schemas.js').Issue[],
+ *   building?: { bin: string, matched: boolean, issues: import('./schemas.js').Issue[], headline: 'building'|'lot', note: string|null },
  *   noise: (import('./schemas.js').Issue & { distanceM: number, sourceIds: string[], count: number })[],
  *   sources: { source: string, status: 'ok'|'stale'|'failed'|'missing', lastSuccessAt?: string, error?: string, note?: string }[],
  * }>}
  */
-export async function getBuildingIssues(bbl, db) {
+export async function getBuildingIssues(bbl, db, { bin } = {}) {
   const normalized = normalizeBbl(bbl);
   if (!normalized) throw new Error(`Invalid BBL: ${JSON.stringify(bbl)}`);
 
@@ -64,8 +88,16 @@ export async function getBuildingIssues(bbl, db) {
   ]);
 
   const records = new Map(fetchRows.map((r) => [r.source, r]));
+  const issues = issueRows.map(fromIssueRow);
+  // Every HPD, rodent and bedbug row carries its building's BIN in raw.bin.
+  const own = bin ? issues.filter((issue) => issue.raw?.bin != null && String(issue.raw.bin) === String(bin)) : null;
+  // matched means HPD knows this building. Rodent inspections alone don't count: at 281 Marcus Garvey Blvd the
+  // searched BIN has 2 rodent rows but no HPD records, while the lot's apartments have hundreds of violations.
+  const isHpd = (issue) => issue.source === 'hpd_violation' || issue.source === 'hpd_complaint';
+  const matched = own?.some(isHpd);
   return {
-    issues: issueRows.map(fromIssueRow),
+    issues,
+    ...(own && { building: { bin: String(bin), matched, issues: own, ...headlineFor(matched, issues.filter(isHpd)) } }),
     noise: collapse(noiseRows.map(fromIssueRow)),
     sources: ALL_SOURCES.map((source) => sourceStatus(source, records.get(source))),
   };

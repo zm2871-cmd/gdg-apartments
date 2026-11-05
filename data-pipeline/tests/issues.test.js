@@ -84,6 +84,70 @@ describe.skipIf(!SUPABASE_URL)('getBuildingIssues against the database', () => {
     expect(noise[0].distanceM).toBeLessThan(40);
   });
 
+  describe('the searched building on a multi-building lot', () => {
+    beforeEach(() => insert('issues', [
+      row('hpd_violation', 'b1-v1', { raw: { bin: '2093459' } }),
+      row('hpd_violation', 'b1-v2', { raw: { bin: '2093459' } }),
+      row('hpd_complaint', 'b1-c1', { raw: { bin: '2093459' } }),
+      row('hpd_violation', 'b2-v1', { raw: { bin: '2093463' } }),
+      row('rodent', 'b2-r1', { raw: { bin: '2093463' } }),
+      row('rodent', 'b3-r1', { raw: { bin: '3325012' } }),
+      row('bedbug', 'nobin', { raw: {} }),
+    ]));
+
+    it('returns its own issues next to the lot totals', async () => {
+      const { issues, building } = await getBuildingIssues(BBL, db, { bin: '2093459' });
+      expect(issues).toHaveLength(7); // the lot, unchanged
+      expect(building.bin).toBe('2093459');
+      expect(building.matched).toBe(true);
+      expect(building.issues.map((i) => i.sourceId).sort()).toEqual([`${PREFIX}b1-c1`, `${PREFIX}b1-v1`, `${PREFIX}b1-v2`]);
+    });
+
+    it('reports no match when the BIN has no records on the lot', async () => {
+      const { issues, building } = await getBuildingIssues(BBL, db, { bin: '1000000' });
+      expect(building).toMatchObject({ bin: '1000000', matched: false, issues: [] });
+      expect(issues).toHaveLength(7);
+    });
+
+    it('reports no match when the BIN has only rodent records (the 281 Marcus Garvey Blvd case)', async () => {
+      const { building } = await getBuildingIssues(BBL, db, { bin: '3325012' });
+      expect(building.matched).toBe(false);
+      expect(building.issues.map((i) => i.sourceId)).toEqual([`${PREFIX}b3-r1`]); // still returned
+    });
+
+    it('matches a numeric BIN', async () => {
+      expect((await getBuildingIssues(BBL, db, { bin: 2093463 })).building.issues).toHaveLength(2);
+    });
+
+    it('leads with the building when HPD has records for it', async () => {
+      expect((await getBuildingIssues(BBL, db, { bin: '2093459' })).building).toMatchObject({ headline: 'building', note: null });
+    });
+
+    it('leads with the lot, and says why, when HPD files the lot under other buildings', async () => {
+      const { building } = await getBuildingIssues(BBL, db, { bin: '3325012' });
+      expect(building.headline).toBe('lot');
+      expect(building.note).toBe("The city files this lot's housing records under 2 other buildings on the same lot, so these numbers cover the whole lot.");
+    });
+
+    it('leaves building out when no BIN is given', async () => {
+      expect(await getBuildingIssues(BBL, db)).not.toHaveProperty('building');
+      expect(await getBuildingIssues(BBL, db, { bin: null })).not.toHaveProperty('building');
+    });
+  });
+
+  it('leads with the building, without a note, when the lot has no HPD records at all', async () => {
+    // e.g. 9 Carroll Place: nothing on record, so there's nothing to tell apart
+    await insert('issues', [row('rodent', 'only-r1', { raw: { bin: '5000012' } })]);
+    const { building } = await getBuildingIssues(BBL, db, { bin: '5000012' });
+    expect(building).toMatchObject({ matched: false, headline: 'building', note: null });
+  });
+
+  it('uses singular wording for one other building', async () => {
+    await insert('issues', [row('hpd_violation', 'other-v1', { raw: { bin: '2093463' } })]);
+    const { building } = await getBuildingIssues(BBL, db, { bin: '3325012' });
+    expect(building.note).toBe("The city files this lot's housing records under another building on the same lot, so these numbers cover the whole lot.");
+  });
+
   it('names a failed source, without mistaking a skipped-deletes note for a failure', async () => {
     const now = Date.now(), iso = (msAgo) => new Date(now - msAgo).toISOString();
     await insert('source_fetches', [
