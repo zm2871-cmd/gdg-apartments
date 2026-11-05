@@ -45,7 +45,7 @@ export async function fetchIssues(building) {
 
   const rows = await querySocrata(dataset_ids.hpd_complaints, {
     where: `bbl = ${bbl} AND received_date >= '${cutoff(time_windows.hpd_complaints.months)}'`, // bbl is a number field here: no quotes
-    order: 'received_date DESC, problem_id',
+    order: ':id',
   });
 
   // Duplicates are dropped as issues but still count toward latestRecordAt.

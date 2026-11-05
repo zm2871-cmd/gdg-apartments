@@ -33,7 +33,7 @@ describe('311 fetchIssues', () => {
       await run([]);
       expect(querySocrata).toHaveBeenCalledWith('erm2-nwe9', {
         where: "within_circle(location, 40.722093, -73.98799, 150) AND created_date >= '2025-11-04T00:00:00' AND complaint_type like 'Noise%'",
-        order: 'created_date DESC, unique_key',
+        order: ':id',
       });
     });
   });

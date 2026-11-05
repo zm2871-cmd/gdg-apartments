@@ -4,7 +4,8 @@ const MAX_RETRIES = 3;
 const TIMEOUT_MS = 30_000;
 
 export async function querySocrata(datasetId, { select, where, order }) {
-  // without a stable order, rows can shift between pages and get skipped or duplicated
+  // without a stable order, rows can shift between pages and get skipped or duplicated.
+  // Use ':id': in DATA-15 a "date DESC, id" order duplicated and dropped HPD violation rows across pages.
   if (!order)
     throw new Error(`Socrata ${datasetId}: order is required for paging`);
   const rows = [];

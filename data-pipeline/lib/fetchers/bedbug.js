@@ -57,7 +57,7 @@ export async function fetchIssues(building) {
   if (!bbl) throw new Error(`bedbug: invalid BBL ${JSON.stringify(building.bbl)}`);
 
   // Few rows per lot (one per building per year), so fetch them all and pick the periods in code.
-  const rows = await querySocrata(dataset_ids.bedbug_filings, { where: `bbl = '${bbl}'`, order: 'filing_date DESC, :id' });
+  const rows = await querySocrata(dataset_ids.bedbug_filings, { where: `bbl = '${bbl}'`, order: ':id' });
   const filings = rows.map((raw) => {
     const v = bedbugFilingSchema.parse(raw);
     return { raw, v, period: periodEndOf(v) };

@@ -432,6 +432,36 @@ Add `scripts/ingest.js "<address>"`, printing per-source counts and errors, with
 
 **Done when:** every test address ingests cleanly, the high-violation address visibly has more issues than the clean one, timings are recorded, and the spec matches what was built.
 
+##### DATA-15 results (November 5, 2026)
+
+**Every test address ingests cleanly.** Three forced runs of all 8 addresses with the app token; the final run had no failed source. Results as read back by `getBuildingIssues`:
+
+| Address | Violations (open) | Complaints | Rodent | Bedbug | 311 noise → collapsed |
+|---|---|---|---|---|---|
+| 2818 Bronx Park East (high violations) | 3,250 (1,135) | 606 | 14 | 2 | 232 → 195 |
+| 109 Bruckner Blvd (clean) | 1 (1) | 0 | 0 | 0 | 10 → 10 |
+| 50-01 2nd St | 0 | 0 | 0 | 0 | 185 → 166 |
+| 9 Carroll Place | 0 | 0 | 0 | 0 | 105 → 101 |
+| 190 Orchard St | 23 (3) | 45 | 0 | 0 | 1,181 → 913 |
+| 39 Whitehall St | 1 (0) | 0 | 0 | 0 | 263 → 207 |
+| 281 Marcus Garvey Blvd | 268 (85) | 102 | 3 | 2 | 375 → 288 |
+| Parkchester (1580 Metropolitan Ave) | 3,264 (1,824) | 1,163 | 5 | 16 | 268 → 230 |
+
+**Timings per source** (16 fetches each across two full runs; fetches run in parallel, so the total is roughly the slowest source):
+
+| Source | Median | Max |
+|---|---|---|
+| HPD violations | 0.3 s | 7.3 s |
+| HPD complaints | 1.2 s | 12.8 s |
+| Rodent | 0.7 s | 8.1 s |
+| Bedbug | 0.6 s | 7.9 s |
+| 311 noise | 1.4 s | 9.3 s |
+| **Whole ingest** | **7.5 s** | **15.1 s** |
+
+Every source occasionally takes 7–13 s, and an earlier run of 161 Newel St took 66 s (most likely a 30 s timeout plus retry). **A fresh ingest is too slow to block a page load.** For the report route: show saved data immediately and refresh in the background, and let 311 load separately.
+
+**Bug found and fixed: paging dropped and duplicated rows.** Socrata's count for Parkchester's violations alternated between 3,279 and 3,290 from call to call: it serves copies of the dataset that briefly disagree. With an `inspectiondate DESC, violationid` order, consecutive pages came from different copies, so one read returned 11 duplicate rows and missed 11 others, and the duplicates failed the upsert ("ON CONFLICT DO UPDATE command cannot affect row a second time"). Ordering by `:id` returned no duplicates in 13 test reads, so every fetcher now orders by `:id`, and `ingest` drops repeated IDs before upserting as a safety net. Results for Parkchester still move by 11 rows between runs; that is the dataset itself, and the next ingest corrects it.
+
 ---
 
 ## 7. Risks

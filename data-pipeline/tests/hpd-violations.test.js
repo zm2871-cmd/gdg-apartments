@@ -26,7 +26,7 @@ describe('hpd-violations fetchIssues', () => {
       await run([]);
       expect(querySocrata).toHaveBeenCalledWith('wvxf-dwi5', {
         where: "bbl = '3026230011' AND (inspectiondate >= '2023-11-03T00:00:00' OR violationstatus = 'Open')",
-        order: 'inspectiondate DESC, violationid',
+        order: ':id',
       });
     });
   });

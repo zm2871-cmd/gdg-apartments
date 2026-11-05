@@ -26,7 +26,7 @@ describe('hpd-complaints fetchIssues', () => {
       await run([]);
       expect(querySocrata).toHaveBeenCalledWith('ygpa-z7cr', {
         where: "bbl = 3026230011 AND received_date >= '2025-11-04T00:00:00'",
-        order: 'received_date DESC, problem_id',
+        order: ':id',
       });
     });
   });

@@ -38,7 +38,7 @@ export async function fetchIssues(building) {
 
   const rows = await querySocrata(dataset_ids.hpd_violations, {
     where: `bbl = '${bbl}' AND (inspectiondate >= '${cutoff(time_windows.hpd_violations.months)}' OR violationstatus = 'Open')`,
-    order: 'inspectiondate DESC, violationid',
+    order: ':id',
   });
 
   // Every row counts toward latestRecordAt, including dropped ones, so "no violations" differs from "never fetched".

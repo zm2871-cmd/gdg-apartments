@@ -53,7 +53,10 @@ async function reconcile(db, bbl, source, issues, latestRecordAt) {
 
 async function saveIssues(db, bbl, source, issues) {
   const fetchedAt = new Date().toISOString(); // the column default only applies on insert
-  const rows = issues.map((issue) => ({ ...toIssueRow(issue), fetched_at: fetchedAt }));
+  // A repeated ID in one upsert fails the whole batch ("cannot affect row a second time"). Fetchers order by :id
+  // so pages shouldn't repeat rows, but Socrata serves replicas that briefly disagree; keep the last copy.
+  const unique = [...new Map(issues.map((issue) => [issue.sourceId, issue])).values()];
+  const rows = unique.map((issue) => ({ ...toIssueRow(issue), fetched_at: fetchedAt }));
   for (let i = 0; i < rows.length; i += UPSERT_BATCH) {
     const batch = rows.slice(i, i + UPSERT_BATCH);
     const { error } = await db.from('issues').upsert(batch, { onConflict: 'source,source_id' });
@@ -73,7 +76,8 @@ async function recordFetch(db, row) {
  * in `buildings` (resolveBuilding). Returns one summary per source.
  * @param {import('./schemas.js').BuildingRef} building
  * @param {import('@supabase/supabase-js').SupabaseClient} db  a client with write access (secret key)
- * @returns {Promise<{ source: string, status: 'ok'|'skipped'|'failed', count?: number, note?: string, error?: string }[]>}
+ * @returns {Promise<{ source: string, status: 'ok'|'skipped'|'failed', count?: number, fetchMs?: number, note?: string, error?: string }[]>}
+ *   fetchMs is how long the source's fetch took (fetches run in parallel, so they overlap).
  */
 export async function ingest(building, db, { force = false } = {}) {
   const { bbl } = buildingRefSchema.parse(building);
@@ -83,7 +87,11 @@ export async function ingest(building, db, { force = false } = {}) {
   const fresh = new Set(fetches.filter((f) => f.last_success_at && Date.now() - new Date(f.last_success_at) < fresh_for_ms).map((f) => f.source));
 
   const toRun = SOURCES.filter((source) => force || !fresh.has(source));
-  const results = await Promise.allSettled(toRun.map((source) => FETCHERS[source](building)));
+  const fetchMs = {};
+  const results = await Promise.allSettled(toRun.map((source) => {
+    const started = Date.now();
+    return FETCHERS[source](building).finally(() => { fetchMs[source] = Date.now() - started; });
+  }));
 
   const summary = SOURCES.filter((s) => !toRun.includes(s)).map((source) => ({ source, status: 'skipped' }));
   for (const [index, result] of results.entries()) {
@@ -99,7 +107,7 @@ export async function ingest(building, db, { force = false } = {}) {
         bbl, source, last_attempt_at: attemptedAt, last_success_at: attemptedAt,
         last_error: note, row_count: count, latest_record_at: latestRecordAt,
       });
-      summary.push({ source, status: 'ok', count, ...(note && { note }) });
+      summary.push({ source, status: 'ok', count, fetchMs: fetchMs[source], ...(note && { note }) });
     } catch (err) {
       // A failed fetch or save deletes nothing and keeps last_success_at, so the source is retried next run.
       let message = err.message;
@@ -108,7 +116,7 @@ export async function ingest(building, db, { force = false } = {}) {
       } catch (recordError) {
         message += `; also failed to record it: ${recordError.message}`;
       }
-      summary.push({ source, status: 'failed', error: message });
+      summary.push({ source, status: 'failed', fetchMs: fetchMs[source], error: message });
     }
   }
   return summary.sort((a, b) => SOURCES.indexOf(a.source) - SOURCES.indexOf(b.source));

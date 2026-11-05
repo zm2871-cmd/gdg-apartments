@@ -76,6 +76,7 @@ describe.skipIf(!SUPABASE_URL)('ingest against the database', () => {
     expect(summary.map((s) => [s.source, s.status, s.count])).toEqual([
       ['hpd_violation', 'ok', 1], ['hpd_complaint', 'ok', 1], ['rodent', 'ok', 1], ['bedbug', 'ok', 1], ['311', 'ok', 1],
     ]);
+    expect(summary.every((s) => Number.isInteger(s.fetchMs) && s.fetchMs >= 0)).toBe(true);
     for (const source of Object.keys(fetchers)) {
       expect(await stored(source)).toHaveLength(1);
       expect(await fetchRecord(source)).toMatchObject({ row_count: 1, last_error: null, latest_record_at: '2026-10-01T00:00:00' });
@@ -155,6 +156,15 @@ describe.skipIf(!SUPABASE_URL)('ingest against the database', () => {
     expect(summary.find((s) => s.source === 'hpd_violation').status).toBe('failed');
     expect(summary.filter((s) => s.status === 'ok')).toHaveLength(4);
     expect((await fetchRecord('hpd_violation')).last_success_at).toBeNull();
+  });
+
+  it('saves a repeated ID once instead of failing the source', async () => {
+    // seen live: Socrata pages returned the same violation twice while its replicas disagreed
+    mockFetchers({ hpd_violation: result([issue('hpd_violation', 'dup', { status: 'open' }), issue('hpd_violation', 'dup', { status: 'closed' })]) });
+    const summary = await ingest(building, db);
+
+    expect(summary.find((s) => s.source === 'hpd_violation')).toMatchObject({ status: 'ok', count: 1 });
+    expect(await stored('hpd_violation')).toEqual([{ source_id: `${PREFIX}dup`, status: 'closed', bbl: BBL }]);
   });
 
   it('deletes stale rows for BBL-scoped sources', async () => {

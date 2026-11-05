@@ -23,7 +23,7 @@ beforeEach(() => vi.mocked(querySocrata).mockReset());
 describe('bedbug fetchIssues', () => {
   it('queries every filing for the quoted BBL', async () => {
     await run([]);
-    expect(querySocrata).toHaveBeenCalledWith('wz6d-d3jb', { where: "bbl = '3016290001'", order: 'filing_date DESC, :id' });
+    expect(querySocrata).toHaveBeenCalledWith('wz6d-d3jb', { where: "bbl = '3016290001'", order: ':id' });
   });
 
   it('records a zero filing as latestRecordAt without emitting an issue', async () => {

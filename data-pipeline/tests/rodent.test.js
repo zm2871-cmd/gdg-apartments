@@ -24,7 +24,7 @@ describe('rodent fetchIssues', () => {
       await run([]);
       expect(querySocrata).toHaveBeenCalledWith('p937-wjvj', {
         where: "(bbl = 3016290001 OR (boro_code = 3 AND block = '1629' AND lot = '1')) AND inspection_date >= '2024-11-04T00:00:00'",
-        order: 'inspection_date DESC, :id',
+        order: ':id',
       });
     });
 

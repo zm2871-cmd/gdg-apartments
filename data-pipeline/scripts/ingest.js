@@ -31,11 +31,12 @@ console.log(`${match.label}  BBL ${match.bbl}  BIN ${match.bin ?? '-'}${force ? 
 
 const started = Date.now();
 const summary = await ingest({ bbl: match.bbl, bin: match.bin, lat: match.lat, lon: match.lon }, db, { force });
-for (const { source, status, count, note, error } of summary) {
+for (const { source, status, count, fetchMs, note, error } of summary) {
   const detail = status === 'ok' ? `${count} issues${note ? `  (${note})` : ''}`
     : status === 'skipped' ? 'fetched in the last 24 hours'
     : error;
-  console.log(`  ${source.padEnd(14)} ${status.padEnd(8)} ${detail}`);
+  const time = fetchMs == null ? '' : `${(fetchMs / 1000).toFixed(1)}s`;
+  console.log(`  ${source.padEnd(14)} ${status.padEnd(8)} ${time.padStart(6)}  ${detail}`);
 }
 console.log(`Done in ${((Date.now() - started) / 1000).toFixed(1)}s`);
 if (summary.some((s) => s.status === 'failed')) process.exitCode = 1;

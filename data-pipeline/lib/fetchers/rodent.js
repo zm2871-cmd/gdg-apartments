@@ -30,7 +30,7 @@ export async function fetchIssues(building) {
   const boro = bbl[0], block = String(Number(bbl.slice(1, 6))), lot = String(Number(bbl.slice(6)));
   const rows = await querySocrata(dataset_ids.rodent_inspections, {
     where: `(bbl = ${bbl} OR (boro_code = ${boro} AND block = '${block}' AND lot = '${lot}')) AND inspection_date >= '${cutoff(time_windows.rodent_inspections.months)}'`,
-    order: 'inspection_date DESC, :id',
+    order: ':id',
   });
 
   const inspections = rows

@@ -42,7 +42,7 @@ export async function fetchIssues(building) {
 
   const rows = await querySocrata(dataset_ids.three_one_one_requests, {
     where: `within_circle(location, ${lat}, ${lon}, ${three_one_one_search_radius.meters}) AND created_date >= '${cutoff(time_windows.three_one_one_requests.months)}' AND complaint_type like 'Noise%'`,
-    order: 'created_date DESC, unique_key',
+    order: ':id',
   });
 
   // Excluded noise rows still count toward latestRecordAt.
