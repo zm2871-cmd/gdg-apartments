@@ -35,10 +35,17 @@ describe('rodent fetchIssues', () => {
     });
   });
 
-  it('includes a row with no BBL that matched on block and lot', async () => {
+  it('includes a row with no BBL that matched on block and lot, under the searched BBL', async () => {
     const { issues } = await run([row({ bbl: undefined })]);
     expect(issues).toHaveLength(1);
-    expect(issues[0].bbl).toBeNull();
+    expect(issues[0].bbl).toBe('3016290001');
+    expect(issues[0].raw.bbl).toBeUndefined(); // the source row is kept as received
+  });
+
+  it('uses the searched BBL when the row carries a different one', async () => {
+    // seen upstream: boro_code 3 with bbl 4089840010
+    const [issue] = (await run([row({ bbl: '4089840010' })])).issues;
+    expect(issue.bbl).toBe('3016290001');
   });
 
   it.each([

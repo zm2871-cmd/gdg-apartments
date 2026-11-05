@@ -358,7 +358,7 @@ Each fetcher exports `fetch(building)` and returns `{ issues, latestRecordAt }`.
 **Findings (November 4, 2026):**
 - `job_id` is not unique: it identifies one case (`Initial`, then `Compliance` re-inspections and `Treatments`, until a pass). `job_id|inspection_date` had no repeats in live data from August 1 to November 4, so it is the `source_id`.
 - Only `Initial` and `Compliance` rows are inspections. `Treatments` (`Bait applied`, `Monitoring visit`), `Stoppage` and `Clean Ups` are dropped and don't count toward `latest_record_at`.
-- Block and lot are unpadded text (`'412'`, `'10'`); the only zero-starting values are junk `0`/`0` rows. About 3% of recent rows have no `bbl`, and all of them have a block and lot.
+- Block and lot are unpadded text (`'412'`, `'10'`); the only zero-starting values are junk `0`/`0` rows. About 3% of recent rows have no `bbl`, and all of them have a block and lot. Issues take the **searched building's BBL**, not the row's: every returned row matched this lot, and a null BBL would hide the issue from reads by BBL and from DATA-13's delete reconciliation.
 - Decided: a failure closes only when a later inspection **in the same `job_id`** passes, so a pass in another building on a multi-building lot doesn't close it. Each failed inspection is its own issue; DATA-14 collapses repeats.
 
 #### DATA-11 — Bedbug filings fetcher · S
