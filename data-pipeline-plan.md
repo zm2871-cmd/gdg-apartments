@@ -371,6 +371,15 @@ Each fetcher exports `fetch(building)` and returns `{ issues, latestRecordAt }`.
 
 **Done when:** tests cover a zero filing (no issue, date recorded) and the three severity cases. The uniqueness check is recorded in the ticket.
 
+**Uniqueness check (November 4, 2026, all 724,411 rows):** `building_id|registration_id|filing_date|filling_period_end_date` is **not unique**: it repeats up to 18 times (building `893949`; `137668` 16 times). In both groups checked, the repeated rows are identical in every field except Socrata's internal `:id`, so adding fields can't separate them. The composite stays the `source_id`, and the fetcher keeps one row per building per filing period, which also removes these duplicates before upsert.
+
+**Other findings and decisions:**
+- A filing year is the period November 1 – October 31. Most buildings file in December, but late filings are common (190 Orchard St files in June/July for the period that ended the previous October), so "latest 2 filing years" means the 2 latest **filing periods**, not filing dates.
+- 129 rows have no period dates; the period is inferred from `filing_date` (filed Nov/Dec of year Y → period ending Oct Y; Jan–Oct → period ending Oct Y−1).
+- Decided: the 2 latest periods are chosen **across the whole lot**, so a building that stopped filing shows nothing recent.
+- Decided: buildings sometimes refile for a period (building `808400`: December 2025 and May 2026); only the **newest filing per building per period** is kept.
+- Severity: re-infested > 0 → 3; infested > eradicated → 2; all eradicated → 1. Status is open when infested > eradicated.
+
 #### DATA-12 — 311 noise fetcher · M
 **Depends on:** DATA-07
 
