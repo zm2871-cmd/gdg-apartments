@@ -1,0 +1,1 @@
+import CompareView from '@/components/CompareView';export default async function Page({searchParams}:{searchParams:Promise<{ids?:string}>}){return <CompareView initialIds={((await searchParams).ids||'').split(',').filter(Boolean)}/>;}

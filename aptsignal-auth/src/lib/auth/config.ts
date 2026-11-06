@@ -1,0 +1,4 @@
+import {z} from 'zod';
+const publicConfig=z.object({url:z.url().refine(value=>{try{const u=new URL(value);return !u.username&&!u.password&&(u.protocol==='https:'||(['localhost','127.0.0.1'].includes(u.hostname)&&u.protocol==='http:'));}catch{return false;}}),key:z.string().startsWith('sb_publishable_')});
+export function supabaseConfig(){const parsed=publicConfig.safeParse({url:process.env.NEXT_PUBLIC_SUPABASE_URL,key:process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY});return parsed.success?parsed.data:null;}
+export function appOrigin(){const raw=process.env.NEXT_PUBLIC_APP_URL;if(!raw)throw new Error('AUTH_CONFIGURATION');const u=new URL(raw);if(u.username||u.password||u.pathname!=='/'||u.search||u.hash||(u.protocol!=='https:'&&!(u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname))))throw new Error('AUTH_CONFIGURATION');return u.origin;}

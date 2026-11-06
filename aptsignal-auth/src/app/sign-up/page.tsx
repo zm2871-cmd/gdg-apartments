@@ -1,0 +1,1 @@
+import {AuthShell} from '../../components/auth/auth-shell';import {SignUpForm} from '../../components/auth/forms';export const metadata={title:'Create an account'};export default function Page(){return <AuthShell><SignUpForm/></AuthShell>;}
