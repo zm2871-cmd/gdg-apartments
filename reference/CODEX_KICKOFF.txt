@@ -1,0 +1,11 @@
+You are implementing AptSignal, a production-oriented NYC apartment research platform, in this repository.
+
+Read the complete file `CODEX_MASTER_PROMPT.md` and use `homepage_visual_reference.png` as a visual design reference. Treat the master prompt as the binding project specification. Implement a real, runnable full-stack Next.js application, not a mockup, static page, partial scaffold, or a rewritten project plan.
+
+First inspect the repo and create/update PLAN.md and DECISIONS.md. Then implement the project in vertical phases: (1) premium responsive homepage and design system, (2) official NYC address lookup, Supabase schema/RLS, data-source adapters and source-linked building reports, (3) comparison, saved accounts, personalized deterministic/AI advice, (4) securely uploaded lease PDFs and source-grounded red-flag review, (5) tests, CI, operational documentation and Vercel deployment. Follow the exact project and security requirements in the master prompt.
+
+Take responsibility for implementation details. Use current stable dependency versions, official documentation, and real municipal APIs. If integrations need credentials, create .env.example and make a usable, explicitly labeled synthetic demo mode. NEVER fake live NYC records or legal findings. Keep real-world grading evidence-based and show 'Not enough data' when scores cannot be justified. Do not expose uploaded leases or API secrets.
+
+Install dependencies, run lint/typecheck/unit tests/end-to-end tests/build, fix failures, and be transparent about commands actually executed. Do not stop at a plan or at a landing page. Continue implementation until all reasonable specified phases are addressed; if a blocker prevents finishing something, document it precisely in IMPLEMENTATION_STATUS.md with the next actionable step.
+
+Begin now by reading the specification and inspecting the repository.

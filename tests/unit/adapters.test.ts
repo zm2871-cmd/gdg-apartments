@@ -1,0 +1,12 @@
+import {it,expect,vi,afterEach} from 'vitest';import {normalize,adapter} from '../../src/lib/nyc/adapters';import {demoIdentities} from '../../src/lib/demo';import {officialFetch,numeric,literal} from '../../src/lib/nyc/client';
+const identity={...demoIdentities[0],hpd:'123',bbl:'1000010001'};
+afterEach(()=>vi.unstubAllGlobals());
+it('normalizes HPD severity and redacts units',()=>{const r=normalize('violations',{violationid:'1',inspectiondate:'2026-01-01',class:'C',novdescription:'Repair apartment 5A heat',violationstatus:'Close'},identity)!;expect(r.severity).toBe(6);expect(r.kind).toBe('violation');expect(r.description).not.toContain('5A');expect(r.scope).toBe('building');});
+it('keeps complaint scope and reliability separate',()=>{const r=normalize('requests',{unique_key:'2',created_date:'2026-01-01',complaint_type:'Noise - Residential',status:'Closed'},identity)!;expect(r.kind).toBe('complaint');expect(r.scope).toBe('nearby');});
+it('negative inspection is not positive risk evidence',()=>expect(normalize('rodents',{job_id:'1',inspection_date:'2026-01-01',result:'Passed'},identity)?.positive).toBe(false));
+it('malformed dates are not fabricated',()=>expect(normalize('violations',{violationid:'1'},identity)).toBeNull());
+it('rejects arbitrary URL fetching',async()=>{await expect(officialFetch('https://evil.example/test')).rejects.toThrow('Unapproved');await expect(officialFetch('http://data.cityofnewyork.us/test')).rejects.toThrow('Unapproved');});
+it('validates identifiers and quotes literals',()=>{expect(()=>numeric("1' OR 1=1")).toThrow();expect(literal("O'NEIL")).toBe("'O''NEIL'");});
+it('returns an explicit unmatched state without identifiers',async()=>{const r=await adapter('violations').fetchForBuilding(demoIdentities[0]);expect(r.coverage.status).toBe('unmatched');expect(r.records).toEqual([]);});
+it('retries 429 then accepts data',async()=>{const fn=vi.fn().mockResolvedValueOnce({ok:false,status:429}).mockResolvedValueOnce({ok:true,json:async()=>[]});vi.stubGlobal('fetch',fn);expect(await officialFetch('https://data.cityofnewyork.us/resource/test.json')).toEqual([]);expect(fn).toHaveBeenCalledTimes(2);});
+it('malformed source payload becomes partial, never demo',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({bad:true})}));const r=await adapter('violations').fetchForBuilding(identity);expect(r.coverage.status).toBe('error');expect(r.records).toEqual([]);});

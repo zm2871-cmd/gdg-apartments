@@ -1,0 +1,13 @@
+import {z} from 'zod';
+export const categories=['pests','bedbugs','heat','maintenance','noise'] as const;
+export type Category=typeof categories[number];
+export const labels:Record<Category,string>={pests:'Pests & rodents',bedbugs:'Bedbugs',heat:'Heat & hot water',maintenance:'Maintenance',noise:'Nearby noise'};
+export const identitySchema=z.object({id:z.string().min(3).max(150),address:z.string().max(200),borough:z.string(),bbl:z.string().regex(/^\d{10}$/).optional(),hpd:z.string().regex(/^\d+$/).optional(),bin:z.string().optional(),lat:z.number().min(40.4).max(41),lng:z.number().min(-74.3).max(-73.6),confidence:z.enum(['building','tax_lot','unverified','ambiguous']),lotUnits:z.number().optional(),lotBuildings:z.number().optional(),demo:z.boolean().optional()});
+export type Identity=z.infer<typeof identitySchema>;
+export type Evidence={id:string;source:string;externalId:string;category:Category;kind:'violation'|'inspection'|'filing'|'complaint';scope:'building'|'tax_lot'|'nearby';date:string;status:string;severity:1|3|6;description:string;url:string;positive:boolean;analysisKey?:string;lat?:number;lng?:number};
+export type Coverage={source:string;status:'ok'|'error'|'unmatched'|'truncated'|'stale';checkedAt:string;count:number;message?:string};
+export type Score={category:Category;burden:number;count:number;grade:string|null;percentile:number|null;explanation:string};
+export type Report={identity:Identity;records:Evidence[];coverage:Coverage[];scores:Score[];checkedAt:string;demo:boolean};
+export const weightsSchema=z.object({pests:z.number().min(0).max(5),bedbugs:z.number().min(0).max(5),heat:z.number().min(0).max(5),maintenance:z.number().min(0).max(5),noise:z.number().min(0).max(5)});
+export const defaultWeights={pests:3,bedbugs:3,heat:3,maintenance:3,noise:3};
+export const compareSchema=z.object({ids:z.array(z.string().min(3).max(150)).min(2).max(3).refine(a=>new Set(a).size===a.length),weights:weightsSchema.default(defaultWeights)});

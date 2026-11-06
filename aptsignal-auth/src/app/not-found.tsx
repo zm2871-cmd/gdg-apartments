@@ -1,0 +1,1 @@
+import Link from 'next/link';export default function NotFound(){return <main id="main" className="standalone-state"><h1>This page isn’t here.</h1><p>Return to your account’s front door.</p><Link className="button button-primary" href="/sign-in">Back to sign in</Link></main>;}

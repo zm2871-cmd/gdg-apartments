@@ -1,0 +1,1 @@
+import Link from 'next/link';export default function NotFound(){return <div className="page empty"><h1>We couldn’t find that report.</h1><p>The address may need to be searched again, or the private document may not belong to this account.</p><div className="actions" style={{justifyContent:'center'}}><Link className="button" href="/#search">Search an address</Link></div></div>;}
