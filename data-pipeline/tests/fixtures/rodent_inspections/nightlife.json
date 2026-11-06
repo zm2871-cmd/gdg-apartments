@@ -1,0 +1,118 @@
+{
+  "source": "rodent_inspections",
+  "label": "nightlife",
+  "address": "190 Orchard St, Manhattan",
+  "bbl": "1004120010",
+  "query": {
+    "where": "(bbl = 1004120010 OR (boro_code = 1 AND block = '412' AND lot = '10')) AND inspection_date >= '2024-11-02T00:00:00'",
+    "order": "inspection_date DESC, :id"
+  },
+  "captured_at": "2026-11-03T04:20:23.767Z",
+  "total_rows": 4,
+  "rows": [
+    {
+      "job_id": "PC8736510",
+      "inspection_date": "2026-06-17T12:42:25.000",
+      "inspection_type": "Initial",
+      "house_number": "190",
+      "street_name": "ORCHARD STREET",
+      "zip_code": "10002",
+      "borough": "Manhattan",
+      "result": "Passed",
+      "bbl": "1004120010",
+      "boro_code": "1",
+      "block": "412",
+      "lot": "10",
+      "latitude": "40.72211719715",
+      "longitude": "-73.988159658373",
+      "location": {
+        "latitude": "40.72211719715",
+        "longitude": "-73.988159658373",
+        "human_address": "{\"address\": \"\", \"city\": \"\", \"state\": \"\", \"zip\": \"\"}"
+      },
+      "community_board": "3",
+      "council_district": "1",
+      "census_tract": "3001",
+      "bin": "1005393",
+      "nta": "Lower East Side"
+    },
+    {
+      "job_id": "PC8640569",
+      "inspection_date": "2025-12-10T11:58:22.000",
+      "inspection_type": "Initial",
+      "house_number": "190",
+      "street_name": "ORCHARD STREET",
+      "zip_code": "10002",
+      "borough": "Manhattan",
+      "result": "Passed",
+      "bbl": "1004120010",
+      "boro_code": "1",
+      "block": "412",
+      "lot": "10",
+      "latitude": "40.72211719715",
+      "longitude": "-73.988159658373",
+      "location": {
+        "latitude": "40.72211719715",
+        "longitude": "-73.988159658373",
+        "human_address": "{\"address\": \"\", \"city\": \"\", \"state\": \"\", \"zip\": \"\"}"
+      },
+      "community_board": "3",
+      "council_district": "1",
+      "census_tract": "3001",
+      "bin": "1005393",
+      "nta": "Lower East Side"
+    },
+    {
+      "job_id": "PC8552328",
+      "inspection_date": "2025-06-06T10:04:42.000",
+      "inspection_type": "Initial",
+      "house_number": "190",
+      "street_name": "ORCHARD STREET",
+      "zip_code": "10002",
+      "borough": "Manhattan",
+      "result": "Passed",
+      "bbl": "1004120010",
+      "boro_code": "1",
+      "block": "412",
+      "lot": "10",
+      "latitude": "40.72211719715",
+      "longitude": "-73.988159658373",
+      "location": {
+        "latitude": "40.72211719715",
+        "longitude": "-73.988159658373",
+        "human_address": "{\"address\": \"\", \"city\": \"\", \"state\": \"\", \"zip\": \"\"}"
+      },
+      "community_board": "3",
+      "council_district": "1",
+      "census_tract": "3001",
+      "bin": "1005393",
+      "nta": "Lower East Side"
+    },
+    {
+      "job_id": "PC8461664",
+      "inspection_date": "2024-12-09T12:29:30.000",
+      "inspection_type": "Initial",
+      "house_number": "190",
+      "street_name": "ORCHARD STREET",
+      "zip_code": "10002",
+      "borough": "Manhattan",
+      "result": "Passed",
+      "bbl": "1004120010",
+      "boro_code": "1",
+      "block": "412",
+      "lot": "10",
+      "latitude": "40.72211719715",
+      "longitude": "-73.988159658373",
+      "location": {
+        "latitude": "40.72211719715",
+        "longitude": "-73.988159658373",
+        "human_address": "{\"address\": \"\", \"city\": \"\", \"state\": \"\", \"zip\": \"\"}"
+      },
+      "community_board": "3",
+      "council_district": "1",
+      "census_tract": "3001",
+      "bin": "1005393",
+      "nta": "Lower East Side"
+    }
+  ]
+}

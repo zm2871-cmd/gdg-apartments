@@ -1,0 +1,13 @@
+{
+  "source": "hpd_complaints",
+  "label": "small",
+  "address": "9 Carroll Place, Staten Island",
+  "bbl": "5000030028",
+  "query": {
+    "where": "bbl = 5000030028 AND received_date >= '2025-11-02T00:00:00'",
+    "order": "received_date DESC, problem_id"
+  },
+  "captured_at": "2026-11-03T04:20:23.767Z",
+  "total_rows": 0,
+  "rows": []
+}

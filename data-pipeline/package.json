@@ -1,0 +1,18 @@
+{
+  "name": "gdg-apartments",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "test": "node --env-file-if-exists=.env node_modules/vitest/vitest.mjs run --passWithNoTests"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "source": "hpd_violations",
+  "label": "condo",
+  "address": "39 Whitehall St, Manhattan",
+  "bbl": "1000087501",
+  "query": {
+    "where": "bbl = '1000087501' AND (inspectiondate >= '2023-11-02T00:00:00' OR violationstatus = 'Open')",
+    "order": "inspectiondate DESC, violationid"
+  },
+  "captured_at": "2026-11-03T04:20:23.767Z",
+  "total_rows": 1,
+  "rows": [
+    {
+      "violationid": "18914119",
+      "buildingid": "897990",
+      "registrationid": "143139",
+      "boroid": "1",
+      "boro": "MANHATTAN",
+      "housenumber": "2",
+      "lowhousenumber": "2",
+      "highhousenumber": "4",
+      "streetname": "WATER STREET",
+      "streetcode": "33490",
+      "zip": "10004",
+      "block": "8",
+      "lot": "7501",
+      "class": "A",
+      "inspectiondate": "2026-05-08T00:00:00.000",
+      "approveddate": "2026-05-08T00:00:00.000",
+      "originalcertifybydate": "2026-08-25T00:00:00.000",
+      "originalcorrectbydate": "2026-08-11T00:00:00.000",
+      "ordernumber": "1507",
+      "novid": "10474952",
+      "novdescription": "(A) § HMC:FILE ANNUAL BEDBUG REPORT IN ACCORDANCE WITH HPD RULE AS DESCRIBED ON THE BACK OF THIS NOTICE OF VIOLATION OR AS DESCRIBED ON HPD\u001aS WEBSITE, WWW.NYC.GOV\\HPD, SEARCH BED BUGS.",
+      "novissueddate": "2026-05-08T00:00:00.000",
+      "currentstatusid": "9",
+      "currentstatus": "VIOLATION DISMISSED",
+      "currentstatusdate": "2026-05-29T00:00:00.000",
+      "novtype": "Original",
+      "violationstatus": "Close",
+      "rentimpairing": "N",
+      "latitude": "40.702458",
+      "longitude": "-74.012753",
+      "communityboard": "1",
+      "councildistrict": "1",
+      "censustract": "9",
+      "bin": "1087700",
+      "bbl": "1000087501",
+      "nta": "Financial District-Battery Park City"
+    }
+  ]
+}
