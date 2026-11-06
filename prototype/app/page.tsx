@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { mockApartments } from "../data/mockApartments";
 
 export default function Home() {
@@ -134,9 +135,9 @@ export default function Home() {
               </p>
             )}
 
-            <p className="whitespace-pre-wrap">
-              {answer}
-            </p>
+            <div className="advice-content">
+              <ReactMarkdown skipHtml>{answer}</ReactMarkdown>
+            </div>
           </div>
         )}
       </div>
