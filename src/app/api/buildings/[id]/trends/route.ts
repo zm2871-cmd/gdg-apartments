@@ -1,0 +1,2 @@
+import {z} from 'zod';import {getReport,trends} from '@/lib/reports';import {guard,json,failure} from '@/lib/security';
+export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){try{guard(req);const months=z.enum(['3','12','36']).parse(new URL(req.url).searchParams.get('window')??'12');const r=await getReport((await params).id);if(!r)throw new Error('NOT_FOUND');return json({points:trends(r,Number(months)),coverage:r.coverage,notice:'Counts by event month, not continuous observation or newly published records.'});}catch(e){return failure(e);}}

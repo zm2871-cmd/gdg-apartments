@@ -1,0 +1,1 @@
+{"framework":"nextjs","crons":[{"path":"/api/internal/ingest","schedule":"0 7 * * *"},{"path":"/api/internal/cleanup","schedule":"0 8 * * *"}]}

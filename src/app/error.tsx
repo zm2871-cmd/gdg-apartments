@@ -1,0 +1,1 @@
+'use client';export default function ErrorPage({reset}:{reset:()=>void}){return <div className="page empty"><h1>That didn’t load as expected.</h1><p>No substitute records have been generated. Please try again.</p><button className="button" onClick={reset}>Try again</button></div>;}

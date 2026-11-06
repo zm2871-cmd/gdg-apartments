@@ -1,0 +1,2 @@
+import {z} from 'zod';import {getReport} from '@/lib/reports';import {guard,json,failure} from '@/lib/security';
+export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){try{guard(req);const id=z.string().regex(/^(nyc-[a-f0-9]{24}|demo-[123])$/).parse((await params).id);const r=await getReport(id);if(!r)throw new Error('NOT_FOUND');return json(r);}catch(e){return failure(e);}}

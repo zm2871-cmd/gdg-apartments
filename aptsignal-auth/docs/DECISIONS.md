@@ -1,0 +1,11 @@
+# Decisions
+- Next.js App Router deployed to Vercel, as explicitly requested; no Sites hosting substitution.
+- Live grades are withheld without a validated cohort of at least 100 comparable buildings. Synthetic baseline is isolated.
+- Live public data does not require Supabase; durable caching and private features require provisioned Supabase.
+- No photos or fabricated city records. Reference drives typography, cream/forest palette and report-led layout.
+- Lease analysis is conservative deterministic screening with verified official guidance; no document is sent to AI.
+- Installed current registry versions: Next 16.4.3, React 19.3.1, PDF.js 6.4.299, TypeScript 6.0.3. Lockfile retained; no audit vulnerabilities at installation.
+- Next build uses Webpack after an environment-specific Turbopack CSS worker-port failure. This is a supported compiler option, not a skipped build.
+- Lease findings conservatively identify topics (`needs_review`) and exact excerpts, without pretending numerical/semantic legality classification is implemented.
+- No Supabase credentials or local database runtime exists; actual migration/RLS/storage verification is an explicit release blocker. A runnable two-user RLS script is supplied.
+- Owner requested zero AI billing: removed OpenAI SDK and all model-call code, removed AI UI opt-in and quota invocation. Environment variables cannot enable AI. `.env.example` documents the future key location. Regression test sets all enable flags and a synthetic key, sends consent=true, and asserts zero network calls. Re-enabling requires explicit authorization and a code change.
