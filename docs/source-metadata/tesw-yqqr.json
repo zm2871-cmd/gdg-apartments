@@ -1,0 +1,22 @@
+{
+  "id": "tesw-yqqr",
+  "name": "Multiple Dwelling Registrations",
+  "fields": [
+    "registrationid",
+    "buildingid",
+    "boroid",
+    "boro",
+    "housenumber",
+    "lowhousenumber",
+    "highhousenumber",
+    "streetname",
+    "streetcode",
+    "zip",
+    "block",
+    "lot",
+    "bin",
+    "communityboard",
+    "lastregistrationdate",
+    "registrationenddate"
+  ]
+}

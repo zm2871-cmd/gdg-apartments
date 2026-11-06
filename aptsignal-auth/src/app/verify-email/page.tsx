@@ -1,0 +1,1 @@
+import {AuthShell} from '../../components/auth/auth-shell';import {EmailForm} from '../../components/auth/forms';export const metadata={title:'Verify email'};export default async function Page({searchParams}:{searchParams:Promise<{status?:string}>}){return <AuthShell><EmailForm kind="verify" status={(await searchParams).status}/></AuthShell>;}

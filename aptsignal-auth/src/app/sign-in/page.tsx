@@ -1,0 +1,2 @@
+import {AuthShell} from '../../components/auth/auth-shell';import {SignInForm} from '../../components/auth/forms';import {safeDestination} from '../../lib/auth/navigation';
+export const metadata={title:'Sign in'};export default async function Page({searchParams}:{searchParams:Promise<{next?:string;status?:string}>}){const query=await searchParams;return <AuthShell><SignInForm next={safeDestination(query.next)} status={query.status}/></AuthShell>;}

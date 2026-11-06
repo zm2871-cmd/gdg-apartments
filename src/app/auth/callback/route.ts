@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {session} from '@/lib/db';
+export async function GET(req:Request){const code=new URL(req.url).searchParams.get('code');const db=await session();if(code&&db){const {error}=await db.auth.exchangeCodeForSession(code);if(!error)return NextResponse.redirect(new URL('/saved',req.url));}return NextResponse.redirect(new URL('/account?error=signin',req.url));}

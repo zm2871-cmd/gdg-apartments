@@ -1,0 +1,5 @@
+import {afterEach,it,expect,vi} from 'vitest';import {supabaseConfig,appOrigin} from '../../src/lib/auth/config';
+afterEach(()=>vi.unstubAllEnvs());
+it('empty and malformed configuration fails closed',()=>{vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','');vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','');expect(supabaseConfig()).toBeNull();vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','bad');expect(supabaseConfig()).toBeNull();});
+it('rejects secret keys in public configuration',()=>{vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL','https://test.supabase.co');vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','sb_secret_never-use');expect(supabaseConfig()).toBeNull();});
+it('requires a trusted configured origin, not a request header',()=>{vi.stubEnv('NEXT_PUBLIC_APP_URL','https://auth.example.test');expect(appOrigin()).toBe('https://auth.example.test');vi.stubEnv('NEXT_PUBLIC_APP_URL','https://auth.example.test/path');expect(()=>appOrigin()).toThrow();vi.stubEnv('NEXT_PUBLIC_APP_URL','http://external.example.test');expect(()=>appOrigin()).toThrow();});

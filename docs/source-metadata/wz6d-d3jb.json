@@ -1,0 +1,27 @@
+{
+  "id": "wz6d-d3jb",
+  "name": "Bedbug Reporting",
+  "fields": [
+    "building_id",
+    "registration_id",
+    "borough",
+    "house_number",
+    "street_name",
+    "postcode",
+    "of_dwelling_units",
+    "infested_dwelling_unit_count",
+    "eradicated_unit_count",
+    "re_infested_dwelling_unit",
+    "filing_date",
+    "filing_period_start_date",
+    "filling_period_end_date",
+    "latitude",
+    "longitude",
+    "community_board",
+    "city_council_district",
+    "census_tract_2010",
+    "bin",
+    "bbl",
+    "nta"
+  ]
+}
