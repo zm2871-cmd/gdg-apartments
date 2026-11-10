@@ -93,16 +93,21 @@ quota caps and billing alert are set. GMAPS-04 to GMAPS-07 were rewritten to fet
 - **Done when:** unit tests with mocked `fetch` cover success, 429 retry, 403 and a missing mask.
 
 ### GMAPS-03 — Match a building to a place ID · M
-- Call Text Search with the building's address as `textQuery`, a circle `locationBias` of about
-  50 m at the building's lat/lon, `pageSize: 5`, and the cheap mask
-  `places.id,places.formattedAddress,places.location,places.types`.
-- Accept a candidate only if it is within about 50 m and its street number matches. Prefer the types
-  `apartment_building`, `apartment_complex`, `condominium_complex` and `premise`. Otherwise return
-  `null`, because many buildings have no Google listing.
-- Store `google_place_id` on the building. Place IDs can be kept indefinitely. Re-match only when the
-  ID is missing or Details returns `NOT_FOUND`.
-- **Done when:** fixtures of 5–10 real NYC addresses give the expected match or `null`, and there
-  are no false matches to nearby businesses.
+**Status: done.** `lib/google-match.js` exports `matchPlace({ address, lat, lon })`, which returns a
+place ID or `null`.
+- It calls Text Search with the GeoSearch label, `includedType: 'apartment_building'`, a 50 m
+  `locationBias` and the mask `places.id,places.formattedAddress,places.location,places.types`.
+- The type filter is required. Live tests on 2026-11-10 showed that an unfiltered search returns
+  only the bare address result (`premise`/`subpremise`), which never has reviews.
+- It accepts the nearest candidate within 50 m whose house number matches. Otherwise it returns
+  `null`. Most buildings have no listing: 6 of the 9 test addresses had none.
+- Storing the ID moved to GMAPS-05 and GMAPS-06.
+- **Fixtures:** real Google responses are not saved, because §3.2.3(a) bans storing places
+  information. Unit tests use hand-written candidates modeled on the live results, and
+  `scripts/check-google-match.js` re-runs 9 real addresses live: 3 matches, plus near-misses such as
+  165 vs 160 W 66th St. All pass.
+- **Known gap:** condo-only listings (`condominium_complex`) may be missed. See the `shortcut:`
+  comment in the code.
 
 ### GMAPS-04 — Live Place Details in the app · S
 - Add `src/lib/google.ts` with `getGoogleReviews(placeId)`. The Next app doesn't import

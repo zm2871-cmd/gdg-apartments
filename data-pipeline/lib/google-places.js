@@ -3,7 +3,7 @@ const SEARCH_URL = "https://places.googleapis.com/v1/places:searchText";
 const MAX_RETRIES = 3;
 const TIMEOUT_MS = 30_000;
 
-export async function searchText(query, { lat, lon, radius }, fieldMask) {
+export async function searchText(query, { lat, lon, radius, includedType }, fieldMask) {
   // Google bills a request at its most expensive field, so a missing or "*" mask could bill at the top tier.
   if (!fieldMask || fieldMask.includes("*"))
     throw new Error("Google Places: an explicit field mask is required");
@@ -12,6 +12,7 @@ export async function searchText(query, { lat, lon, radius }, fieldMask) {
   const body = JSON.stringify({
     textQuery: query,
     pageSize: 5,
+    includedType, // dropped from the JSON when undefined
     locationBias: { circle: { center: { latitude: lat, longitude: lon }, radius } },
   });
   const label = `searchText "${query}"`; // the key lives in a header, so it can't leak into this
