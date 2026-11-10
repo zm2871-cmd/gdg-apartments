@@ -84,9 +84,9 @@ quota caps and billing alert are set. GMAPS-04 to GMAPS-07 were rewritten to fet
   returns a place.
 
 ### GMAPS-02 — Places client · S
-- Add `lib/google-places.js` with `searchText(query, { lat, lon, radius }, fieldMask)` and
-  `placeDetails(placeId, fieldMask)`. Use built-in `fetch` and follow the error handling in
-  `lib/socrata.js`.
+- Add `lib/google-places.js` with `searchText(query, { lat, lon, radius }, fieldMask)`. Use
+  built-in `fetch` and follow the error handling in `lib/socrata.js`. Place Details isn't needed
+  here, because it runs live in the app (GMAPS-04).
 - A field mask is required on every call. Throw when it is missing so a forgotten mask can't bill at
   the wrong tier.
 - Retry 429 and 5xx with backoff. Fail fast on 400 and 403.
