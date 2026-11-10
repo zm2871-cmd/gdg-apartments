@@ -71,10 +71,9 @@ place-details, data-fields, usage-and-billing, policies), read 2026-11-06.
 ---
 
 ### GMAPS-01 — Confirm terms and set up the key · S
-**Status:** terms done (see API facts above), and the key works: a Text Search curl returned a place
-on 2026-11-06. Still to do: confirm the quota cap and billing alert, and add the key to the Next app
-env (`.env.local` and Vercel). **GMAPS-04 to GMAPS-07 must be revised to fetch live and never
-store Google data.**
+**Status: done.** The terms are recorded in API facts above. A Text Search curl with the key
+returned a place. The key is in `data-pipeline/.env`, the root `.env.local` and Vercel, and the
+quota caps and billing alert are set. GMAPS-04 to GMAPS-07 were rewritten to fetch live.
 - Read the Maps Service Terms (cloud.google.com/maps-platform/terms/maps-service-terms). Write down
   how long `rating`, `userRatingCount` and `reviews` may be stored. Check whether NYC apartment
   ratings can feed a building score.
