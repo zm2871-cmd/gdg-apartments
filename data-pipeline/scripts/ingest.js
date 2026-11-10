@@ -1,15 +1,18 @@
 // Fetches every source for one address and saves it to Supabase.
-// Usage: node --env-file=.env scripts/ingest.js "161 Newel St" [--force]
+// Usage: node --env-file=.env scripts/ingest.js "161 Newel St" [--force] [--no-google]
+// --no-google skips the Google place-ID match (a billed Text Search) for cheap local runs.
 import { createClient } from '@supabase/supabase-js';
 import { resolveBuilding } from '../lib/building.js';
 import { searchAddress } from '../lib/geosearch.js';
+import { syncGooglePlace } from '../lib/google-match.js';
 import { ingest } from '../lib/ingest.js';
 
 const args = process.argv.slice(2);
 const force = args.includes('--force');
-const address = args.filter((a) => a !== '--force').join(' ').trim();
+const google = !args.includes('--no-google');
+const address = args.filter((a) => a !== '--force' && a !== '--no-google').join(' ').trim();
 if (!address) {
-  console.error('Usage: node --env-file=.env scripts/ingest.js "<address>" [--force]');
+  console.error('Usage: node --env-file=.env scripts/ingest.js "<address>" [--force] [--no-google]');
   process.exit(2);
 }
 
@@ -31,8 +34,13 @@ console.log(`${match.label}  BBL ${match.bbl}  BIN ${match.bin ?? '-'}${force ? 
 
 const started = Date.now();
 const summary = await ingest({ bbl: match.bbl, bin: match.bin, lat: match.lat, lon: match.lon }, db, { force });
+if (google) {
+  const g = await syncGooglePlace({ bbl: match.bbl, address: match.label, lat: match.lat, lon: match.lon }, db);
+  summary.push({ ...g, note: g.placeId ? 'listing found' : 'no listing' });
+}
 for (const { source, status, count, fetchMs, note, error } of summary) {
-  const detail = status === 'ok' ? `${count} issues${note ? `  (${note})` : ''}`
+  const detail = source === 'google' && status !== 'failed' ? `${note}${status === 'skipped' ? ' (already searched)' : ''}`
+    : status === 'ok' ? `${count} issues${note ? `  (${note})` : ''}`
     : status === 'skipped' ? 'fetched in the last 24 hours'
     : error;
   const time = fetchMs == null ? '' : `${(fetchMs / 1000).toFixed(1)}s`;

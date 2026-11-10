@@ -14,6 +14,46 @@ export async function matchPlace({ address, lat, lon }) {
   return pickPlace(places, { address, lat, lon });
 }
 
+const RECHECK_NO_MATCH_MS = 90 * 24 * 60 * 60 * 1000; // a building may get a Google listing later
+
+/**
+ * Finds and saves a building's place ID in google_places, during ingest. A building that already has an ID, or was
+ * searched with no match in the last 90 days, is skipped. Never throws for a Google failure: it's recorded in
+ * source_fetches (source 'google') so it can't fail the NYC ingest.
+ * @param {{ bbl: string, address: string, lat: number, lon: number }} building  must already be in buildings
+ * @returns {Promise<{ source: 'google', status: 'ok'|'skipped'|'failed', placeId?: string|null, error?: string }>}
+ */
+export async function syncGooglePlace(building, db) {
+  const { bbl } = building;
+  const { data: row, error } = await db.from('google_places').select('place_id, matched_at').eq('bbl', bbl).maybeSingle();
+  if (error) throw new Error(`Reading google_places for ${bbl}: ${error.message}`);
+  if (row && (row.place_id || Date.now() - new Date(row.matched_at) < RECHECK_NO_MATCH_MS)) {
+    return { source: 'google', status: 'skipped', placeId: row.place_id };
+  }
+
+  const attemptedAt = new Date().toISOString();
+  try {
+    const placeId = await matchPlace(building);
+    const saved = await db.from('google_places').upsert({ bbl, place_id: placeId, matched_at: attemptedAt });
+    if (saved.error) throw new Error(`Saving google_places for ${bbl}: ${saved.error.message}`);
+    await recordGoogleFetch(db, { bbl, last_attempt_at: attemptedAt, last_success_at: attemptedAt, last_error: null, row_count: placeId ? 1 : 0 });
+    return { source: 'google', status: 'ok', placeId };
+  } catch (err) {
+    let message = err.message;
+    try {
+      await recordGoogleFetch(db, { bbl, last_attempt_at: attemptedAt, last_error: message });
+    } catch (recordError) {
+      message += `; also failed to record it: ${recordError.message}`;
+    }
+    return { source: 'google', status: 'failed', error: message };
+  }
+}
+
+async function recordGoogleFetch(db, row) {
+  const { error } = await db.from('source_fetches').upsert({ ...row, source: 'google' }, { onConflict: 'bbl,source' });
+  if (error) throw new Error(error.message);
+}
+
 // Nearest candidate within 50 m whose house number matches the building's; null otherwise.
 export function pickPlace(places, { address, lat, lon }) {
   const number = houseNumber(address);

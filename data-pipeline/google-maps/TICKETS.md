@@ -119,8 +119,8 @@ place ID or `null`.
 - Validate with Zod and return `{ placeId, rating, ratingCount, url, reviews: [{ rating, text,
   originalText, translated, author, authorUri, authorPhotoUri, relativeTime, url, flagUrl }] }`.
   Keep Google's review order. Don't return `raw`.
-- A place with no rating returns `rating: null, reviews: []`. A `NOT_FOUND` clears
-  `google_places.place_id` so the next ingest re-matches. Any other failure returns `null` and is logged,
+- A place with no rating returns `rating: null, reviews: []`. A `NOT_FOUND` deletes the
+  `google_places` row so the next ingest re-matches. Any other failure returns `null` and is logged,
   never thrown to the page.
 - **Done when:** unit tests with mocked `fetch` cover a full place, an empty place, `NOT_FOUND` and a
   5xx.
@@ -144,6 +144,10 @@ place ID or `null`.
 - Add `--no-google` to `scripts/ingest.js` for cheap local runs.
 - **Done when:** `scripts/ingest.js <address>` stores a place ID or a "no match" timestamp, and a
   second run makes no Google calls.
+- **Status: done.** `syncGooglePlace()` in `lib/google-match.js` is called from `scripts/ingest.js`
+  after `ingest()`, so the NYC sources never wait on Google. `--force` doesn't re-match: an ID
+  stays until GMAPS-04 deletes it on `NOT_FOUND`. Live check: 1 Blue Slip matched, and the second
+  run skipped Google.
 
 ### GMAPS-07 — Show Google reviews on the building page · M
 - Add `src/app/api/buildings/[id]/google/route.ts`. It calls `guard(req)`, looks up the building's
