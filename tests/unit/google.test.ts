@@ -1,5 +1,5 @@
-import {afterEach,beforeEach,expect,it,vi} from 'vitest';
-import {getGoogleReviews} from '../../src/lib/google';
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
+import {getGoogleForBuilding,getGoogleReviews} from '../../src/lib/google';
 
 // Hand-written, shaped like a live response checked 2026-11-10. Real Google content isn't saved (ToS §3.2.3(a)).
 const review=(over={})=>({name:'places/p/reviews/r',rating:4,text:{text:'Nice lobby',languageCode:'en'},originalText:{text:'Nice lobby',languageCode:'en'},
@@ -59,4 +59,40 @@ it('rejects a bad place ID or missing key without calling Google',async()=>{
   vi.stubEnv('GOOGLE_MAPS_API_KEY','');
   expect(await getGoogleReviews('p1')).toBeNull();
   expect(fetchMock).not.toHaveBeenCalled();
+});
+
+describe('getGoogleForBuilding',()=>{
+  // Minimal stand-in for the Supabase query builder: from().select().eq().maybeSingle() and from().delete().eq().
+  const fakeDb=(row:unknown,readError:unknown=null)=>{
+    const deleted:string[]=[];
+    const db={from:()=>({
+      select:()=>({eq:()=>({maybeSingle:async()=>({data:row,error:readError})})}),
+      delete:()=>({eq:async(_:string,bbl:string)=>{deleted.push(bbl);return {error:null};}}),
+    })};
+    return {db:db as never,deleted};
+  };
+
+  it('fetches reviews for a matched building',async()=>{
+    fetchMock.mockResolvedValue(json({id:'p1',rating:4}));
+    const {db}=fakeDb({place_id:'p1'});
+    expect(await getGoogleForBuilding(db,'3024727503')).toMatchObject({placeId:'p1',rating:4});
+  });
+
+  it.each([[null],[{place_id:null}]])('returns no_listing without calling Google for row %j',async(row)=>{
+    const {db}=fakeDb(row);
+    expect(await getGoogleForBuilding(db,'3024727503')).toBe('no_listing');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('deletes the row when Google says the place is gone',async()=>{
+    fetchMock.mockResolvedValue(json({error:{status:'NOT_FOUND'}},404));
+    const {db,deleted}=fakeDb({place_id:'gone'});
+    expect(await getGoogleForBuilding(db,'3024727503')).toBe('no_listing');
+    expect(deleted).toEqual(['3024727503']);
+  });
+
+  it('returns null when the database read fails',async()=>{
+    const {db}=fakeDb(null,{message:'down'});
+    expect(await getGoogleForBuilding(db,'3024727503')).toBeNull();
+  });
 });

@@ -154,18 +154,26 @@ place ID or `null`.
   run skipped Google.
 
 ### GMAPS-07 — Show Google reviews on the building page · M
-- Add `src/app/api/buildings/[id]/google/route.ts`. It calls `guard(req)`, looks up the building's
-  `google_places.place_id` and returns `getGoogleReviews()`. Set `export const dynamic = 'force-dynamic'`
-  and send `Cache-Control: no-store`. It stays separate from `/api/buildings/[id]` so a slow or
-  failing Google call never blocks the report.
-- Load it only when the user opens a "Google reviews" tab or section. Every view is an Enterprise +
-  Atmosphere call, so don't fetch on page load.
-- Keep that view off any screen with `BuildingMap` on it, because of §3.2.3(e).
-- Follow the Display rules in API facts: author attribution, a per-review Google Maps link, the
-  notice "Sorted by relevance by Google", a report link, a translated label and the
-  not-verified-by-Google notice.
-- Google data must never reach `src/lib/scoring`, `saved`, `compare` or the `advisor` prompt,
-  because of §3.2.3(a) and (c).
-- **Done when:** a matched building shows the rating, count and reviews with every required element.
-  An unmatched building shows "No Google listing", the map isn't visible alongside it, and the
-  network tab shows no Google call until the tab is opened.
+**Status: done.** Google reviews have their own page, `/building/[id]/reviews`
+(`src/app/building/[id]/reviews/page.tsx`), not a tab or an API route:
+- **Separate page:** the report page shows the MapLibre map, so a tab there would put Google
+  content "near a non-Google map" (§3.2.3(e)). Opening the page is the user action that triggers the
+  Enterprise + Atmosphere call. The report links to it only for real buildings with a BBL.
+- **Lookup:** the app reads `google_places` from the *pipeline's* Supabase project by
+  `identity.bbl`, through `pipeline()` in `src/lib/db.ts` and `getGoogleForBuilding()` in
+  `src/lib/google.ts`. The app's own schema (root `supabase/`) has a different, `id`-keyed
+  `buildings` table. This needs `PIPELINE_SUPABASE_URL` and `PIPELINE_SUPABASE_SECRET_KEY`
+  (server-only) in `.env.local` and Vercel. Without them the page says "unavailable".
+- **No caching:** the page uses `dynamic = 'force-dynamic'`, `fetchCache = 'force-no-store'`,
+  noindex, and a plain `<img>` for avatars, because `next/image` would cache them. If
+  `cacheComponents` is ever enabled in `next.config.ts`, replace the segment configs (Next 16
+  removes them in that mode).
+- **Shown:** rating, count, a place link, the "sorted by relevance by Google" notice, the
+  not-verified notice with a policy link, and a "Google Maps" credit. Each review has its avatar,
+  linked author, rating, relative time, a translated/original toggle, a Google Maps link and a
+  report link. Google data stays out of scoring, saved, compare and advisor.
+- **Checked live 2026-11-10:** 1 Blue Slip shows 5 reviews with every element. 161 Newel St shows
+  "No Google listing". The response is `Cache-Control: no-store`, and no MapLibre is on the page.
+- **Known gaps:** only `scripts/ingest.js` matches place IDs, so buildings first searched in the app
+  show "No Google listing" until the pipeline ingests them. An invalid ID shows the not-found page
+  with HTTP 200 (streaming), the same as the report page.

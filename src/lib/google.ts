@@ -1,5 +1,6 @@
 import 'server-only';
 import {z} from 'zod';
+import type {SupabaseClient} from '@supabase/supabase-js';
 
 // GMAPS-04. Live Place Details for one building. Nothing here may be stored or cached (Google Maps ToS §3.2.3(a),(b)).
 // Enterprise + Atmosphere tier, the most expensive: call only when a user opens the Google reviews view.
@@ -24,6 +25,23 @@ const detailsSchema=z.object({
 
 export type GoogleReview={rating:number;text:string|null;originalText:string|null;translated:boolean;author:string;authorUri:string|null;authorPhotoUri:string|null;relativeTime:string|null;url:string;flagUrl:string|null};
 export type GoogleReviews={placeId:string;rating:number|null;ratingCount:number;url:string|null;reviews:GoogleReview[]};
+
+type PipelineDb=Pick<SupabaseClient,'from'>;
+
+/**
+ * GMAPS-07. Looks up the building's place ID in the pipeline's google_places and fetches its reviews live.
+ * 'no_listing' covers no row, a null place ID and a place Google has removed (its row is deleted so ingest re-matches).
+ */
+export async function getGoogleForBuilding(db:PipelineDb,bbl:string):Promise<GoogleReviews|'no_listing'|null>{
+  const {data,error}=await db.from('google_places').select('place_id').eq('bbl',bbl).maybeSingle();
+  if(error){console.error(`Reading google_places for ${bbl}: ${error.message}`);return null;}
+  if(!data?.place_id)return 'no_listing';
+  const result=await getGoogleReviews(data.place_id);
+  if(result!=='not_found')return result;
+  const {error:deleteError}=await db.from('google_places').delete().eq('bbl',bbl);
+  if(deleteError)console.error(`Deleting stale google_places row for ${bbl}: ${deleteError.message}`);
+  return 'no_listing';
+}
 
 /**
  * Returns the place's rating and up to 5 reviews in Google's order (by relevance; never re-sort, ToS §3.2.3(g)).
