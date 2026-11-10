@@ -120,23 +120,25 @@ place ID or `null`.
   originalText, translated, author, authorUri, authorPhotoUri, relativeTime, url, flagUrl }] }`.
   Keep Google's review order. Don't return `raw`.
 - A place with no rating returns `rating: null, reviews: []`. A `NOT_FOUND` clears
-  `google_place_id` so the next ingest re-matches. Any other failure returns `null` and is logged,
+  `google_places.place_id` so the next ingest re-matches. Any other failure returns `null` and is logged,
   never thrown to the page.
 - **Done when:** unit tests with mocked `fetch` cover a full place, an empty place, `NOT_FOUND` and a
   5xx.
 
 ### GMAPS-05 — Store the place ID only · S
-- Add a migration with `buildings.google_place_id text` and `buildings.google_matched_at
-  timestamptz`. The timestamp is our own data. It records "checked, no listing" so a building
-  without a match isn't searched again on every run.
+- Add a migration with a table `google_places`: `bbl` (primary key, foreign key to `buildings`,
+  `on delete cascade`), `place_id text` (null means searched, no listing) and `matched_at
+  timestamptz`.
+- It's a separate table, so `resolveBuilding`'s upsert of `buildings` can never wipe it. RLS is on
+  with no policy, so only the secret key can access it.
 - Store nothing else from Google: no rating, review or coordinate columns. Google rows never go in
   the shared review tables. YELP-05 owns those tables now.
-- **Done when:** the migration applies locally, and a check confirms no Google field other than the
-  ID exists in the schema.
+- **Done when:** the migration is pushed to the hosted project and `tests/schema.test.js` passes.
 
 ### GMAPS-06 — Match place IDs during ingest · S
-- Ingest runs only GMAPS-03 (Text Search, Pro tier). It never calls Details. Run the match when
-  `google_place_id` is null and `google_matched_at` is missing or older than 90 days.
+- Ingest runs only GMAPS-03 (Text Search, Pro tier). It never calls Details. Run the match when the
+  building has no `google_places` row, or its `place_id` is null and `matched_at` is older than 90
+  days.
 - A Google failure must not fail the NYC open-data ingest. Record it in `source_fetches` as a failed
   run.
 - Add `--no-google` to `scripts/ingest.js` for cheap local runs.
@@ -145,7 +147,7 @@ place ID or `null`.
 
 ### GMAPS-07 — Show Google reviews on the building page · M
 - Add `src/app/api/buildings/[id]/google/route.ts`. It calls `guard(req)`, looks up the building's
-  `google_place_id` and returns `getGoogleReviews()`. Set `export const dynamic = 'force-dynamic'`
+  `google_places.place_id` and returns `getGoogleReviews()`. Set `export const dynamic = 'force-dynamic'`
   and send `Cache-Control: no-store`. It stays separate from `/api/buildings/[id]` so a slow or
   failing Google call never blocks the report.
 - Load it only when the user opens a "Google reviews" tab or section. Every view is an Enterprise +
