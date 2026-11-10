@@ -119,11 +119,15 @@ place ID or `null`.
 - Validate with Zod and return `{ placeId, rating, ratingCount, url, reviews: [{ rating, text,
   originalText, translated, author, authorUri, authorPhotoUri, relativeTime, url, flagUrl }] }`.
   Keep Google's review order. Don't return `raw`.
-- A place with no rating returns `rating: null, reviews: []`. A `NOT_FOUND` deletes the
-  `google_places` row so the next ingest re-matches. Any other failure returns `null` and is logged,
+- A place with no rating returns `rating: null, reviews: []`. A `NOT_FOUND` (HTTP 404)
+  returns `'not_found'`, and the caller deletes the `google_places` row so the next ingest re-matches. Any other failure returns `null` and is logged,
   never thrown to the page.
 - **Done when:** unit tests with mocked `fetch` cover a full place, an empty place, `NOT_FOUND` and a
   5xx.
+- **Status: done.** `getGoogleReviews()` returns the reviews, `'not_found'` or `null`. It doesn't
+  touch the database: on `'not_found'`, the GMAPS-07 route deletes the `google_places` row. Field
+  names were checked against a live response on 2026-11-10, and `tests/unit/google.test.ts` (9
+  tests) uses hand-written data, not saved Google content.
 
 ### GMAPS-05 — Store the place ID only · S
 - Add a migration with a table `google_places`: `bbl` (primary key, foreign key to `buildings`,
