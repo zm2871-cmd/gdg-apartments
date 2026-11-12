@@ -1,0 +1,13 @@
+{
+  "source": "rodent_inspections",
+  "label": "small",
+  "address": "9 Carroll Place, Staten Island",
+  "bbl": "5000030028",
+  "query": {
+    "where": "(bbl = 5000030028 OR (boro_code = 5 AND block = '3' AND lot = '28')) AND inspection_date >= '2024-11-02T00:00:00'",
+    "order": "inspection_date DESC, :id"
+  },
+  "captured_at": "2026-11-03T04:20:23.767Z",
+  "total_rows": 0,
+  "rows": []
+}

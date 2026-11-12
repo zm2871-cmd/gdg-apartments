@@ -1,0 +1,13 @@
+{
+  "source": "hpd_complaints",
+  "label": "clean",
+  "address": "109 Bruckner Blvd, Bronx",
+  "bbl": "2022780059",
+  "query": {
+    "where": "bbl = 2022780059 AND received_date >= '2025-11-02T00:00:00'",
+    "order": "received_date DESC, problem_id"
+  },
+  "captured_at": "2026-11-03T04:20:23.767Z",
+  "total_rows": 0,
+  "rows": []
+}
