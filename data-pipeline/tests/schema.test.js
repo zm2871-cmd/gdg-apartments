@@ -57,6 +57,14 @@ describe.skipIf(!SUPABASE_URL)('schema', () => {
     expect(data ?? []).toEqual([]);
   });
 
+  it('google_places: secret key writes, publishable key cannot read, unknown bbl is rejected', async () => {
+    expect((await admin.from('google_places').upsert({ bbl: BBL, place_id: 'test-place' })).error).toBeNull();
+    const { data } = await anon.from('google_places').select('*').eq('bbl', BBL);
+    expect(data ?? []).toEqual([]);
+    const { error } = await admin.from('google_places').insert({ bbl: '5999999902', place_id: null });
+    expect(error).not.toBeNull(); // foreign key to buildings
+  });
+
   it('issues_near returns only rows in radius and date range, nearest first', async () => {
     const { data, error } = await anon.rpc('issues_near', { lat: 40, lon: -70, radius_m: 150, since: '2025-01-01T00:00:00' });
     expect(error).toBeNull();
