@@ -2,6 +2,7 @@ import Link from 'next/link';
 import {notFound} from 'next/navigation';
 import {pipeline} from '@/lib/db';
 import {getGoogleForBuilding} from '@/lib/google';
+import {buildingId} from '@/lib/domain';
 import {getIdentity} from '@/lib/reports';
 
 // GMAPS-07. Its own page, not a tab: the report page shows a MapLibre map, and Google content may not be shown
@@ -12,7 +13,7 @@ export const metadata={title:'Google reviews',robots:{index:false}}; // don't le
 
 export default async function GoogleReviews({params}:{params:Promise<{id:string}>}){
   const id=(await params).id;
-  if(!/^(nyc-[a-f0-9]{24}|demo-[123])$/.test(id))notFound();
+  if(!buildingId.safeParse(id).success)notFound();
   const identity=await getIdentity(id);
   if(!identity)notFound();
   const db=pipeline();

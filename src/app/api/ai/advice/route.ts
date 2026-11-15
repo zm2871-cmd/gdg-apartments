@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {buildingId} from '@/lib/domain';
 import {buildingAdvice} from '@/lib/building-advice';
 import {getReport} from '@/lib/reports';
 import {guard, json, failure} from '@/lib/security';
@@ -6,7 +7,7 @@ import {guard, json, failure} from '@/lib/security';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 const inputSchema = z.object({
-  buildingId: z.string().trim().min(3).max(150),
+  buildingId: buildingId,
   question: z.string().trim().min(1).max(2000),
 });
 

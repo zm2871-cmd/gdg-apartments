@@ -1,2 +1,2 @@
-import {notFound} from 'next/navigation';import {getReport} from '@/lib/reports';import ReportView from '@/components/ReportView';
-export const dynamic='force-dynamic';export default async function Building({params}:{params:Promise<{id:string}>}){const report=await getReport((await params).id);if(!report)notFound();return <ReportView report={report}/>;}
+import {notFound} from 'next/navigation';import {buildingId} from '@/lib/domain';import {getReport} from '@/lib/reports';import ReportView from '@/components/ReportView';
+export const dynamic='force-dynamic';export default async function Building({params}:{params:Promise<{id:string}>}){const id=buildingId.safeParse((await params).id);const report=id.success?await getReport(id.data):null;if(!report)notFound();return <ReportView report={report}/>;}

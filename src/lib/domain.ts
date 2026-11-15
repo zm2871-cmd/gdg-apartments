@@ -10,4 +10,6 @@ export type Score={category:Category;burden:number;count:number;grade:string|nul
 export type Report={identity:Identity;records:Evidence[];coverage:Coverage[];scores:Score[];checkedAt:string;demo:boolean};
 export const weightsSchema=z.object({pests:z.number().min(0).max(5),bedbugs:z.number().min(0).max(5),heat:z.number().min(0).max(5),maintenance:z.number().min(0).max(5),noise:z.number().min(0).max(5)});
 export const defaultWeights={pests:3,bedbugs:3,heat:3,maintenance:3,noise:3};
-export const compareSchema=z.object({ids:z.array(z.string().min(3).max(150)).min(2).max(3).refine(a=>new Set(a).size===a.length),weights:weightsSchema.default(defaultWeights)});
+// Pipeline buildings are keyed by BBL; demo-1..3 are the synthetic fixtures.
+export const buildingId=z.string().regex(/^([1-5]\d{9}|demo-[123])$/);
+export const compareSchema=z.object({ids:z.array(buildingId).min(2).max(3).refine(a=>new Set(a).size===a.length),weights:weightsSchema.default(defaultWeights)});
