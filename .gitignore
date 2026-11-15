@@ -8,4 +8,5 @@ test-results/
 !.env.example
 *.tsbuildinfo
 .vercel/
+public/hearthstone/
 .DS_Store
