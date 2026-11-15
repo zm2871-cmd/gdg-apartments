@@ -1,0 +1,13 @@
+{
+  "source": "hpd_violations",
+  "label": "small",
+  "address": "9 Carroll Place, Staten Island",
+  "bbl": "5000030028",
+  "query": {
+    "where": "bbl = '5000030028' AND (inspectiondate >= '2023-11-02T00:00:00' OR violationstatus = 'Open')",
+    "order": "inspectiondate DESC, violationid"
+  },
+  "captured_at": "2026-11-03T04:20:23.767Z",
+  "total_rows": 0,
+  "rows": []
+}

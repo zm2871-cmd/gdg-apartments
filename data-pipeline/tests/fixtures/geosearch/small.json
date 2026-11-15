@@ -1,0 +1,93 @@
+{
+  "geocoding": {
+    "version": "0.2",
+    "attribution": "http://geosearch.planninglabs.nyc/attribution",
+    "query": {
+      "text": "9 Carroll Place, Staten Island",
+      "size": 1,
+      "private": false,
+      "lang": {
+        "name": "English",
+        "iso6391": "en",
+        "iso6393": "eng",
+        "via": "default",
+        "defaulted": true
+      },
+      "querySize": 20,
+      "parser": "pelias",
+      "parsed_text": {
+        "subject": "9 Carroll Place",
+        "housenumber": "9",
+        "street": "Carroll Place",
+        "locality": "Staten Island",
+        "admin": "Staten Island"
+      }
+    },
+    "warnings": [
+      "invalid language provided via header"
+    ],
+    "engine": {
+      "name": "Pelias",
+      "author": "Mapzen",
+      "version": "1.0"
+    },
+    "timestamp": 1793679652830
+  },
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.086695,
+          40.647364
+        ]
+      },
+      "properties": {
+        "id": "4269866",
+        "gid": "nycpad:venue:4269866",
+        "layer": "venue",
+        "source": "nycpad",
+        "source_id": "4269866",
+        "country_code": "US",
+        "name": "9 CARROLL PLACE",
+        "housenumber": "9",
+        "street": "CARROLL PLACE",
+        "postalcode": "10301",
+        "confidence": 0.8,
+        "match_type": "fallback",
+        "accuracy": "point",
+        "country": "United States",
+        "country_gid": "whosonfirst:country:85633793",
+        "country_a": "USA",
+        "region": "New York",
+        "region_gid": "whosonfirst:region:85688543",
+        "region_a": "NY",
+        "county": "Richmond County",
+        "county_gid": "whosonfirst:county:102081779",
+        "locality": "New York",
+        "locality_gid": "whosonfirst:locality:85977539",
+        "locality_a": "NYC",
+        "borough": "Staten Island",
+        "borough_gid": "whosonfirst:borough:421205775",
+        "neighbourhood": "St. George",
+        "neighbourhood_gid": "whosonfirst:neighbourhood:85846655",
+        "label": "9 CARROLL PLACE, Staten Island, NY, USA",
+        "addendum": {
+          "pad": {
+            "bbl": "5000030028",
+            "bin": "5000012",
+            "version": "26c"
+          }
+        }
+      }
+    }
+  ],
+  "bbox": [
+    -74.086695,
+    40.647364,
+    -74.086695,
+    40.647364
+  ]
+}
