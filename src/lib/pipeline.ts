@@ -11,6 +11,7 @@ export {searchAddress} from '../../data-pipeline/lib/geosearch.js';
 export {resolveBuilding} from '../../data-pipeline/lib/building.js';
 export {ingest} from '../../data-pipeline/lib/ingest.js';
 export {getBuildingIssues} from '../../data-pipeline/lib/issues.js';
+export {dataset_ids} from '../../data-pipeline/lib/sources.js';
 
 export type BuildingIssues=Awaited<ReturnType<typeof getBuildingIssues>>;
 export type SearchMatch=Awaited<ReturnType<typeof searchAddress>>[number];
@@ -18,7 +19,7 @@ export type SearchMatch=Awaited<ReturnType<typeof searchAddress>>[number];
 export type BuildingRow={bbl:string;bin:string|null;address:string;borough:string|null;geom:string;units_res:number|null};
 type Issue=BuildingIssues['issues'][number];
 
-const sources={
+export const sources={
   hpd_violation:{name:'HPD violations',dataset:dataset_ids.hpd_violations,kind:'violation'},
   hpd_complaint:{name:'HPD complaints',dataset:dataset_ids.hpd_complaints,kind:'complaint'},
   rodent:{name:'DOHMH rodent inspections',dataset:dataset_ids.rodent_inspections,kind:'inspection'},

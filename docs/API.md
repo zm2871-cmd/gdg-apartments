@@ -26,7 +26,6 @@ JSON success values are plain objects. Errors use `{ "error": { "code": "SOURCE_
 | GET /api/leases/:uuid | Own status and results only |
 | POST /api/leases/:uuid/analyze | Explicit deterministic analysis; no external AI |
 | DELETE /api/leases/:uuid | Owner-checked storage + metadata deletion |
-| GET/POST /api/internal/ingest | Exact Bearer CRON_SECRET; one known building per bounded run |
 | GET /api/internal/cleanup | Exact Bearer CRON_SECRET; max 50 expired PDFs/run |
 
 Example comparison:
