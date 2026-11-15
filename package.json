@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "npm run build:frontend && next build --webpack",
+    "build:frontend": "npm ci --prefix frontend && HEARTHSTONE_EMBEDDED_BUILD=1 VITE_DATA_PROVIDER=api VITE_API_BASE_URL=/api npm --prefix frontend run build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
