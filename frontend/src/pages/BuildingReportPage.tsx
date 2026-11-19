@@ -9,7 +9,6 @@ import { RecentIssues } from '../components/RecentIssues'
 import { BuildingActions, EmptyState, ErrorPanel, Skeleton } from '../components/ui'
 import { formatDate, locality, type BuildingReport } from '../domain'
 import { ServiceError } from '../services/contracts'
-import { assistantService } from '../services/runtime'
 
 const NeighborhoodMap = lazy(() => import('../components/NeighborhoodMap'))
 
@@ -35,6 +34,7 @@ export default function BuildingReportPage() {
 }
 
 function Report({ report }: { report: BuildingReport }) {
+  const { assistant } = useWorkspace()
   const { building, checkedAt, summary, grades, issues, coverage, changes, questions, nearby } = report
   return <div className="container report-page">
     <nav aria-label="Breadcrumb" className="breadcrumbs">
@@ -96,7 +96,7 @@ function Report({ report }: { report: BuildingReport }) {
           {row.message && <p>{row.message}</p>}
         </li>)}</ul> : <p className="muted">Source coverage was unavailable.</p>}
       </details>
-      <AssistantPanel building={building} service={assistantService} />
+      <AssistantPanel building={building} service={assistant} />
       <p className="report-disclaimer"><Info size={15} /> <span>{building.sample ? 'This demonstration uses fictional addresses, grades, events, and map markers. ' : ''}
         Public records may be delayed or incomplete. <Link to="/how-it-works">Read about coverage and limitations.</Link></span></p>
     </div>

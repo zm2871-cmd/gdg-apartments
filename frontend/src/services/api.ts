@@ -3,7 +3,7 @@ import {
   categories, type Building, type BuildingReport, type Coverage, type Grade, type GradeCategory,
   type Issue, type RatingPreferences, type ScoringOptions, type Source,
 } from '../domain'
-import { ServiceError, type AuthAdapter, type HousingDataProvider, type SavedAdapter } from './contracts'
+import { ServiceError, type AuthAdapter, type HousingDataProvider, type SavedAdapter, type AssistantService } from './contracts'
 import { validatePreferences } from './preferences'
 
 const category = z.enum(categories)
@@ -219,5 +219,35 @@ export class ApiSavedAdapter implements SavedAdapter {
       method: saved ? 'POST' : 'DELETE',
       body: JSON.stringify(saved ? { kind: 'building', ids: [id] } : { kind: 'building', id }),
     })
+  }
+}
+
+const adviceSchema = z.object({
+  answer: z.string().trim().min(1), fallback: z.boolean(), buildingId: id, checkedAt: date,
+})
+
+export class ApiAssistantAdapter implements AssistantService {
+  readonly available = true
+  constructor(private readonly client: ApiClient) {}
+
+  async send(input: Parameters<AssistantService['send']>[0], signal?: AbortSignal) {
+    signal?.throwIfAborted()
+    const question = input.messages.at(-1)
+    const buildingId = input.buildingIds[0]
+    if (input.buildingIds.length !== 1 || !buildingId || buildingId.trim() !== buildingId || buildingId.length < 3 || buildingId.length > 150 || buildingId.startsWith('demo-')) {
+      throw new ServiceError('Choose one live building report.', 400)
+    }
+    if (question?.role !== 'user' || !question.text.trim() || question.text.trim().length > 2000) {
+      throw new ServiceError('Enter a question of 1–2,000 characters.', 400)
+    }
+    const result = await this.client.request('/ai/advice', adviceSchema, {
+      method: 'POST', signal, body: JSON.stringify({ buildingId, question: question.text.trim() }),
+    })
+    if (result.buildingId !== buildingId) throw new ServiceError('The service returned advice for a different building.')
+    return {
+      id: crypto.randomUUID(), role: 'assistant' as const, text: result.answer,
+      createdAt: new Date().toISOString(), buildingIds: [result.buildingId],
+      fallback: result.fallback, checkedAt: result.checkedAt,
+    }
   }
 }

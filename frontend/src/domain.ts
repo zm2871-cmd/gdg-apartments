@@ -99,6 +99,8 @@ export type BuildingComparison = {
 }
 export type AssistantMessage = {
   id: string
+  fallback?: boolean
+  checkedAt?: string
   role: 'user' | 'assistant'
   text: string
   createdAt: string
