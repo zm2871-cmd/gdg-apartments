@@ -31,7 +31,7 @@ test('renders Markdown and fallback labels, limits questions, and displays serve
     requests.push(route.request().postDataJSON())
     count++
     return route.fulfill({ json: count === 3 ? { error: { message: 'Please retry later.' } } : {
-      answer: '**Heat records**\n\n<script>alert(1)</script>\n\n[unsafe](javascript:alert(1))',
+      answer: '**Heat records**\n\n<script>alert(1)</script>\n\n[unsafe](javascript:alert(1)) [external](https://example.com) ![pixel](https://example.com/pixel.png)',
       fallback: count === 2, buildingId: 'canonical-building', checkedAt: '2026-11-19T12:00:00Z',
     }, status: count === 3 ? 429 : 200 })
   })
@@ -48,7 +48,7 @@ test('renders Markdown and fallback labels, limits questions, and displays serve
   await expect(page.getByText('AI is unavailable. Showing a summary of retrieved records instead.')).toBeVisible()
   await expect(page.locator('.assistant-messages strong').filter({ hasText: 'Heat records' })).toHaveCount(2)
   await expect(page.locator('.assistant-messages script')).toHaveCount(0)
-  await expect(page.locator('.assistant-messages a[href^="javascript:"]')).toHaveCount(0)
+  await expect(page.locator('.assistant-messages a, .assistant-messages img')).toHaveCount(0)
   expect(requests).toEqual(['First question', 'Second question', 'Third question'].map(question => ({ buildingId: 'canonical-building', question })))
 })
 

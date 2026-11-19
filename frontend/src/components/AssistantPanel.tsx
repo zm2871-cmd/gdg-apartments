@@ -49,7 +49,7 @@ export function AssistantPanel({ building, service }: { building: Building; serv
       <ul className="assistant-messages" aria-live="polite">{messages.map(message => <li key={message.id}>
         <strong>{message.role === 'user' ? 'You' : message.fallback ? 'Records summary' : 'Assistant'}</strong>
         {message.fallback && <p className="banner">AI is unavailable. Showing a summary of retrieved records instead.</p>}
-        {message.role === 'assistant' ? <ReactMarkdown skipHtml>{message.text}</ReactMarkdown> : <p>{message.text}</p>}
+        {message.role === 'assistant' ? <ReactMarkdown skipHtml disallowedElements={['a', 'img']} unwrapDisallowed>{message.text}</ReactMarkdown> : <p>{message.text}</p>}
         {message.checkedAt && <small>Records checked {formatDate(message.checkedAt)}</small>}
       </li>)}</ul>
       <form onSubmit={submit}><label htmlFor="assistant-question">Ask about {building.address}</label>
