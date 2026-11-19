@@ -57,6 +57,8 @@ test('ranks selected saved buildings and shows the records behind the order', as
   await page.getByRole('button', { name: '2 Second Street' }).click()
   const summary = page.locator('.compare-summary')
   await expect(summary.getByRole('heading', { name: 'Your shortlist, based on recorded issues' })).toBeVisible()
+  await expect(summary.getByText('Compared: Heat & hot water.')).toBeVisible()
+  await expect(summary.getByText(/Left out:.*Nearby noise/)).toBeVisible()
   await expect(summary.locator('ol li').first()).toContainText('2 Second Street')
   await summary.getByText('How the ranking was calculated and what records support it').click()
   await expect(summary.getByText('Heat violation reported')).toBeVisible()

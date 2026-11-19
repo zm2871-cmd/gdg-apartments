@@ -85,6 +85,10 @@ export default function ComparePage() {
         {comparison?.method === 'relative_shortlist' && comparison.details && <section className="panel compare-summary" aria-labelledby="compare-summary-title">
           <h2 id="compare-summary-title">Your shortlist, based on recorded issues</h2>
           <p>{comparison.details.reason}</p>
+          <p><strong>Compared:</strong> {comparison.sharedCategories.length
+            ? comparison.sharedCategories.map(category => categoryLabels[category]).join(', ') : 'No categories with comparable records'}.</p>
+          {comparison.missingCategories.length > 0 && <p><strong>Left out:</strong> {comparison.missingCategories
+            .map(category => categoryLabels[category]).join(', ')}. Open the calculation details to see why.</p>}
           {comparison.details.status === 'ranked' && <ol>{[...comparison.weighted].filter(row => row.value !== null)
             .sort((a, b) => a.value! - b.value!).map(row => <li key={row.id}>
               <Link to={'/building/' + encodeURIComponent(row.id)}>{reports.find(report => report.building.id === row.id)?.building.address ?? row.id}</Link>
