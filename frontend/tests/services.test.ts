@@ -144,9 +144,12 @@ describe('API adapter', () => {
   })
 
   it('uses the backend session cookie and the public saved-building contract', async () => {
+    const weights = { maintenance: 3, heat: 5, pests: 2, bedbugs: 1, noise: 4 }
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json({ error: { message: 'unauthorized' } }, { status: 401 }))
       .mockResolvedValueOnce(Response.json({ email: 'renter@example.test' }))
+      .mockResolvedValueOnce(Response.json({ email: 'renter@example.test', preferences: weights }))
+      .mockResolvedValueOnce(Response.json({ saved: true }))
       .mockResolvedValueOnce(Response.json({ buildings: [{ building_id: identity.id }], comparisons: [] }))
       .mockResolvedValueOnce(Response.json({ saved: true }))
       .mockResolvedValueOnce(Response.json({ deleted: true }))
@@ -154,14 +157,20 @@ describe('API adapter', () => {
     const auth = new ApiAuthAdapter(client)
     const saved = new ApiSavedAdapter(client)
     expect(await auth.getSession()).toBeNull()
-    expect(await auth.getSession()).toEqual({ email: 'renter@example.test' })
+    expect(await auth.getSession()).toEqual({ email: 'renter@example.test', preferences: null })
+    expect(await auth.getSession()).toEqual({ email: 'renter@example.test', preferences: weights })
+    await expect(auth.savePreferences({ maintenance: 0, heat: 0, pests: 0, bedbugs: 0, noise: 0 })).rejects.toMatchObject({ status: 400 })
+    await auth.savePreferences(weights)
+    expect(fetcher.mock.calls[3][1]).toMatchObject({
+      method: 'PATCH', credentials: 'include', body: JSON.stringify(weights),
+    })
     expect(await saved.list()).toEqual([identity.id])
     await saved.set(identity.id, true)
     await saved.set(identity.id, false)
-    expect(fetcher.mock.calls[3][1]).toMatchObject({
+    expect(fetcher.mock.calls[5][1]).toMatchObject({
       method: 'POST', credentials: 'include', body: JSON.stringify({ kind: 'building', ids: [identity.id] }),
     })
-    expect(fetcher.mock.calls[4][1]).toMatchObject({
+    expect(fetcher.mock.calls[6][1]).toMatchObject({
       method: 'DELETE', credentials: 'include', body: JSON.stringify({ kind: 'building', id: identity.id }),
     })
   })

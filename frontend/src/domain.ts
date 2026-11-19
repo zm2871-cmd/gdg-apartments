@@ -96,6 +96,19 @@ export type BuildingComparison = {
   sharedCategories: GradeCategory[]
   missingCategories: GradeCategory[]
   scoreLabel: string
+  method?: 'relative_shortlist' | 'synthetic_percentile'
+  details?: {
+    status: 'ranked' | 'tied' | 'insufficient_evidence'
+    reason: string
+    categories: {
+      category: GradeCategory
+      comparable: boolean
+      reason: string | null
+      sources: string[]
+      measure: 'per_100_units' | 'nearby_200m' | null
+      values: { id: string; burden: number | null; evidenceIds: string[] }[]
+    }[]
+  } | null
 }
 export type AssistantMessage = {
   id: string

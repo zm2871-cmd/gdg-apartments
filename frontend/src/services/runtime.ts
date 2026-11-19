@@ -6,6 +6,7 @@ import { LocalSavedAdapter } from './storage'
 const unavailableAuth: AuthAdapter = {
   available: false,
   async getSession() { return null },
+  async savePreferences() { throw new ServiceError('Account access is unavailable in demonstration mode.') },
   async signIn() { throw new ServiceError('Account access is unavailable in demonstration mode.') },
   async signOut() { throw new ServiceError('Account access is unavailable in demonstration mode.') },
 }

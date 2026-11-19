@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import type { RatingPreferences } from '../domain'
+import { categories, type RatingPreferences } from '../domain'
 import { createServices } from '../services/runtime'
 import { createWorkspaceStorage } from '../services/storage'
 import { defaultPreferences, validatePreferences } from '../services/preferences'
+import type { AuthSession } from '../services/contracts'
 
 type Services = ReturnType<typeof createServices>
 
@@ -14,12 +15,12 @@ type Workspace = Services & {
   saveBuilding: (id: string, saved: boolean) => Promise<void>
   compareIds: string[]
   setCompareIds: (ids: string[]) => void
-  session: { email: string } | null
+  session: AuthSession | null
   sessionLoading: boolean
   sessionError: string
   signOut: () => Promise<void>
   preferences: RatingPreferences
-  savePreferences: (value: RatingPreferences) => void
+  savePreferences: (value: RatingPreferences) => Promise<void>
 }
 
 const WorkspaceContext = createContext<Workspace | null>(null)
@@ -28,6 +29,7 @@ export function WorkspaceProvider({ services, children }: { services: Services; 
   const [storage] = useState(() => createWorkspaceStorage(localStorage, services.housing.mode))
   const [compareIds, updateComparison] = useState(storage.getComparison)
   const [preferences, updatePreferences] = useState(() => {
+    if (services.auth.available) return defaultPreferences(services.housing.scoring)
     const stored = storage.getPreferences()
     const options = services.housing.scoring
     return stored && (stored.mode !== 'advanced' || options.supportsAdvanced) && !validatePreferences(stored, options)
@@ -47,7 +49,15 @@ export function WorkspaceProvider({ services, children }: { services: Services; 
     if (!services.auth.available) return
     const controller = new AbortController()
     services.auth.getSession(controller.signal).then(value => {
-      if (!controller.signal.aborted) setSession(value)
+      if (!controller.signal.aborted) {
+        setSession(value)
+        const defaults = defaultPreferences(services.housing.scoring)
+        updatePreferences(value?.preferences ? {
+          ...defaults,
+          mode: categories.every(category => value.preferences?.[category] === defaults.weights[category]) ? 'default' : 'semi',
+          weights: value.preferences,
+        } : defaults)
+      }
     }).catch(error => {
       if (!controller.signal.aborted) setSessionError(error.message)
     }).finally(() => {
@@ -94,6 +104,7 @@ export function WorkspaceProvider({ services, children }: { services: Services; 
     setSession(null)
     setSavedIds([])
     setSavedError('')
+    updatePreferences(defaultPreferences(services.housing.scoring))
   }
 
   return <WorkspaceContext.Provider value={{
@@ -107,10 +118,18 @@ export function WorkspaceProvider({ services, children }: { services: Services; 
       updateComparison(selected)
     },
     preferences,
-    savePreferences: value => {
+    savePreferences: async value => {
       const validation = validatePreferences(value, services.housing.scoring)
       if (validation) throw new Error(validation)
-      storage.setPreferences(value)
+      if (services.auth.available) {
+        if (!session) throw new Error('Sign in to save your priorities.')
+        const generation = saveGeneration.current
+        await services.auth.savePreferences(value.weights)
+        if (generation !== saveGeneration.current) return
+        setSession(current => current?.email === session.email ? { ...current, preferences: value.weights } : current)
+      } else {
+        storage.setPreferences(value)
+      }
       updatePreferences(value)
     },
   }}>{children}</WorkspaceContext.Provider>

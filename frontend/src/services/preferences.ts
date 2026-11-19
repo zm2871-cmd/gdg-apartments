@@ -22,6 +22,7 @@ export function defaultPreferences(options: ScoringOptions): RatingPreferences {
 
 export function validatePreferences(value: RatingPreferences, options: ScoringOptions): string | null {
   if (!preferencesSchema.safeParse(value).success) return 'Every weight must be a whole number from 0 to 5.'
+  if (value.mode === 'advanced' && !options.supportsAdvanced) return 'Advanced weighting requires subcategory scores from the API.'
   if (value.mode === 'default') return null
   if (!Object.values(value.weights).some(Boolean)) return 'Set at least one category weight above zero.'
   if (value.mode === 'advanced') {

@@ -1,10 +1,10 @@
 import { z } from 'zod'
 import {
-  categories, type Building, type BuildingReport, type Coverage, type Grade, type GradeCategory,
+  categories, type Building, type BuildingReport, type CategoryWeights, type Coverage, type Grade, type GradeCategory,
   type Issue, type RatingPreferences, type ScoringOptions, type Source,
 } from '../domain'
 import { ServiceError, type AuthAdapter, type HousingDataProvider, type SavedAdapter, type AssistantService } from './contracts'
-import { validatePreferences } from './preferences'
+import { validatePreferences, weightsSchema } from './preferences'
 
 const category = z.enum(categories)
 const id = z.string().min(1).max(150)
@@ -36,6 +36,16 @@ const reportSchema = z.object({
 const comparisonSchema = z.object({
   reports: z.array(reportSchema), common: z.array(category), missing: z.array(category),
   ranked: z.array(z.object({ id, value: z.number().nullable() })),
+  method: z.enum(['relative_shortlist', 'synthetic_percentile']).optional(),
+  details: z.object({
+    status: z.enum(['ranked', 'tied', 'insufficient_evidence']),
+    reason: z.string(),
+    categories: z.array(z.object({
+      category, comparable: z.boolean(), reason: z.string().nullable(), sources: z.array(z.string()),
+      measure: z.enum(['per_100_units', 'nearby_200m']).nullable(),
+      values: z.array(z.object({ id, burden: z.number().nullable(), evidenceIds: z.array(id) })),
+    })),
+  }).nullable().optional(),
 })
 
 export class ApiClient {
@@ -179,7 +189,9 @@ export class ApiHousingDataProvider implements HousingDataProvider {
     return {
       reports: ids.map(id => reports.get(id)!), weighted: result.ranked,
       sharedCategories: result.common, missingCategories: result.missing,
-      scoreLabel: 'Weighted burden percentile (lower = less recorded burden)',
+      scoreLabel: result.method === 'relative_shortlist'
+        ? 'Relative rank points (lower = fewer recorded issues)' : 'Weighted burden percentile (lower = less recorded burden)',
+      ...(result.method && { method: result.method, details: result.details }),
     }
   }
 }
@@ -189,11 +201,22 @@ export class ApiAuthAdapter implements AuthAdapter {
   constructor(private readonly client: ApiClient) {}
   async getSession(signal?: AbortSignal) {
     try {
-      return await this.client.request('/account', z.object({ email: z.email() }), { signal })
+      const account = await this.client.request('/account', z.object({ email: z.email(), preferences: z.unknown().optional() }), { signal })
+      const saved = weightsSchema.safeParse(account.preferences)
+      return { email: account.email, preferences: saved.success && Object.values(saved.data).some(Boolean) ? saved.data : null }
     } catch (error) {
       if (error instanceof ServiceError && error.status === 401) return null
       throw error
     }
+  }
+  async savePreferences(weights: CategoryWeights) {
+    const parsed = weightsSchema.safeParse(weights)
+    if (!parsed.success || !Object.values(parsed.data).some(Boolean)) {
+      throw new ServiceError('Set at least one priority above zero.', 400)
+    }
+    await this.client.request('/account', z.object({ saved: z.literal(true) }), {
+      method: 'PATCH', body: JSON.stringify(parsed.data),
+    })
   }
   async signIn(email: string) {
     const result = await this.client.request('/auth', z.object({ message: z.string() }), {
