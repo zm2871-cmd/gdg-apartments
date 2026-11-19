@@ -1,0 +1,93 @@
+{
+  "geocoding": {
+    "version": "0.2",
+    "attribution": "http://geosearch.planninglabs.nyc/attribution",
+    "query": {
+      "text": "190 Orchard St, Manhattan",
+      "size": 1,
+      "private": false,
+      "lang": {
+        "name": "English",
+        "iso6391": "en",
+        "iso6393": "eng",
+        "via": "default",
+        "defaulted": true
+      },
+      "querySize": 20,
+      "parser": "pelias",
+      "parsed_text": {
+        "subject": "190 Orchard St",
+        "housenumber": "190",
+        "street": "Orchard St",
+        "locality": "Manhattan",
+        "admin": "Manhattan"
+      }
+    },
+    "warnings": [
+      "invalid language provided via header"
+    ],
+    "engine": {
+      "name": "Pelias",
+      "author": "Mapzen",
+      "version": "1.0"
+    },
+    "timestamp": 1793679654537
+  },
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.98799,
+          40.722093
+        ]
+      },
+      "properties": {
+        "id": "35881",
+        "gid": "nycpad:venue:35881",
+        "layer": "venue",
+        "source": "nycpad",
+        "source_id": "35881",
+        "country_code": "US",
+        "name": "190 ORCHARD STREET",
+        "housenumber": "190",
+        "street": "ORCHARD STREET",
+        "postalcode": "10002",
+        "confidence": 0.8,
+        "match_type": "fallback",
+        "accuracy": "point",
+        "country": "United States",
+        "country_gid": "whosonfirst:country:85633793",
+        "country_a": "USA",
+        "region": "New York",
+        "region_gid": "whosonfirst:region:85688543",
+        "region_a": "NY",
+        "county": "New York County",
+        "county_gid": "whosonfirst:county:102081863",
+        "locality": "New York",
+        "locality_gid": "whosonfirst:locality:85977539",
+        "locality_a": "NYC",
+        "borough": "Manhattan",
+        "borough_gid": "whosonfirst:borough:421205771",
+        "neighbourhood": "Lower East Side",
+        "neighbourhood_gid": "whosonfirst:neighbourhood:85831563",
+        "label": "190 ORCHARD STREET, New York, NY, USA",
+        "addendum": {
+          "pad": {
+            "bbl": "1004120010",
+            "bin": "1005393",
+            "version": "26c"
+          }
+        }
+      }
+    }
+  ],
+  "bbox": [
+    -73.98799,
+    40.722093,
+    -73.98799,
+    40.722093
+  ]
+}

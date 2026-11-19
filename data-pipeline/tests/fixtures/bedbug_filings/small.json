@@ -1,0 +1,13 @@
+{
+  "source": "bedbug_filings",
+  "label": "small",
+  "address": "9 Carroll Place, Staten Island",
+  "bbl": "5000030028",
+  "query": {
+    "where": "bbl = '5000030028'",
+    "order": "filing_date DESC, :id"
+  },
+  "captured_at": "2026-11-03T04:20:23.767Z",
+  "total_rows": 0,
+  "rows": []
+}

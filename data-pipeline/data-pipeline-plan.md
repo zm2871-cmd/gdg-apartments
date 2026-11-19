@@ -1,0 +1,478 @@
+# Hearthstone Hub — Data Pipeline & Database Plan
+
+> Ticketed plan for pulling NYC public records into Supabase. Companion to `spec.md` and `hearthstone-hub-execution-plan.md`.
+
+| | |
+|---|---|
+| **Status** | Draft v1 |
+| **Last updated** | November 1, 2026 |
+| **Language** | JavaScript only (Node 22.12+, ES modules, no TypeScript) |
+| **Sizing** | S = a day or two · M = a few days (same scale as the execution plan) |
+| **Total** | 15 tickets (9 S, 6 M), roughly 5–7 weeks for one developer. DATA-08 to DATA-12 can run in parallel. |
+
+---
+
+## 1. Scope
+
+**In scope:** fetching, validating, cleaning and storing building and issue records, plus the tables that hold them.
+
+**Out of scope:** grading and `grade_baselines`, `report_snapshots`, user tables, API routes, Next.js, UI, maps, cron and Gemini.
+
+**"Scraping" means API calls.** As spec §4 says, every source is a JSON API, so there is no HTML parsing and no headless browser.
+
+**Records are fetched per building, on demand (spec §5.2).** There is no citywide bulk load: the violations dataset alone has about 11 million rows. A CLI drives ingestion until the API routes exist.
+
+---
+
+## 2. Confirmed sources
+
+Checked against the live APIs on November 1, 2026, without an app token.
+
+| Source | Dataset ID | Record ID | BBL field | Date field |
+|---|---|---|---|---|
+| HPD violations | `wvxf-dwi5` | `violationid` | `bbl` | `inspectiondate` |
+| HPD complaints and problems | `ygpa-z7cr` | `problem_id` | `bbl` | `received_date` |
+| Rodent inspections | `p937-wjvj` | None confirmed, see DATA-10 | `bbl`, often missing | `inspection_date` |
+| Bedbug reporting | `wz6d-d3jb` | None, see DATA-11 | `bbl` | `filing_date` |
+| 311 service requests (2020 to present) | `erm2-nwe9` | `unique_key` | `bbl` | `created_date` |
+| PLUTO | `64uk-42ks` | n/a | `bbl`, in a different format | n/a |
+| GeoSearch | `geosearch.planninglabs.nyc/v2/autocomplete` | n/a | `properties.addendum.pad.bbl` | n/a |
+
+### What the data showed, and how the plan handles it
+
+| Finding | Evidence | Handling |
+|---|---|---|
+| PLUTO's BBL format differs from every other source | `"4087860042.00000000"` | Normalize it, or joins silently return nothing (DATA-06) |
+| Some BBLs are junk | `"0"` and `"0000000000"` both appear | Validate as `^[1-5]\d{9}$`; anything else becomes null (DATA-07) |
+| HPD class I isn't in the spec | 806,185 rows outside A/B/C | Dropped by default (DATA-08) |
+| Pest and heat violations have no category field | Only the free-text `novdescription` identifies them | Word-boundary text matching; a plain `ROACH` match also hits "APPROACH" (DATA-08) |
+| Heat complaints appear in both HPD and 311 | Past 12 months: 356,808 in HPD, 352,817 in 311 (agency HPD) | Take heat from HPD only, or each event counts twice (DATA-12) |
+| HPD complaints include flagged duplicates | About 18% have `problem_duplicate_flag = Y` | Drop them (DATA-09) |
+| `unique_key` is not unique in HPD complaints | 151,757 `problem_id` values, 136,886 `unique_key` values | Use `problem_id` (DATA-09) |
+| Many rodent rows aren't inspections | Bait applied, Cleanup done, Monitoring visit, Stoppage done | Drop them (DATA-10) |
+| Rodent rows can lack a BBL | 103,752 null, of which 102,985 have a block and lot | Query by borough, block and lot instead (DATA-10) |
+| Most bedbug filings report no infestation | 689,282 of 724,411 report zero | No issue row, but record the filing date (DATA-11) |
+| Bedbug rows have no unique ID | `building_id` + `filing_date` gives 710,873 distinct values across 724,411 rows | Composite ID, checked in DATA-11 |
+| Timestamps have no time zone | `"2026-10-31T02:53:39.000"` | Store NYC wall-clock time, which is what the "same night" rule needs (DATA-03) |
+| 311 radius queries can be slow | One noise query at 150 m took 9.4 s without a token | Measure with a token (DATA-15) |
+
+Timings are single runs, so treat them as indicative only.
+
+---
+
+## 3. Decisions
+
+These fill gaps in the spec or change it. Each is easy to reverse before DATA-03 merges.
+
+| # | Decision | Why |
+|---|---|---|
+| 1 | **JavaScript everywhere:** `lib/sources.js`, `lib/cleaning-rules.js`, JSDoc in place of the TS `Issue` type. Zod and Vitest stay. | Project requirement. Spec §4, §5.2, §5.3, §10 and §12 still say TypeScript and need updating. |
+| 2 | **Don't store `distance_m`.** Compute it when reading. | One 311 row can be near many buildings, so distance belongs to the pair, not the row. |
+| 3 | **No foreign key from `issues.bbl` to `buildings`.** | 311 rows carry the BBL of neighbors nobody has searched for. |
+| 4 | **311 rows keep their own BBL from the dataset**, not null as in spec §5.2. | The rows are shared between buildings, so the searched building's BBL can't go on them. |
+| 5 | **Store rows uncollapsed; collapse repeats when reading.** | Rules can be tuned without refetching, and snapshots can still diff real source IDs later. |
+| 6 | **Keep the source row in `issues.raw`.** | Grading needs fields like infested unit counts, and rules can be re-run without refetching. |
+| 7 | **Add a `source_fetches` table.** | Spec has no way to track 24-hour freshness per source, or to report what's missing after a partial failure. |
+| 8 | **311 supplies noise only.** | The `Issue` categories have no slot for other nearby problems, and heat comes from HPD. |
+| 9 | **Noise radius stays at 150 m**, set in one constant. | Spec default; open question 1 in §16. |
+| 10 | **One hosted Supabase project on a personal account, and no local Docker database.** Database tests run against it and are skipped when `SUPABASE_URL` isn't set, including in CI. | The development machine doesn't have the disk space for local Supabase. The group hasn't decided whether to share a project; the schema is in migrations and the data can be refetched, so moving later is cheap. Use a separate project for production. |
+
+### Category and severity mapping
+
+Severity outside HPD violation classes isn't defined in the spec, so those values are starting points for grading to tune.
+
+| Source | Rule | Category | Severity | Status |
+|---|---|---|---|---|
+| HPD violation | Class A / B / C | Pest text → `pests`; heat text → `heat`; otherwise `repairs` | 1 / 2 / 3 | `violationstatus` |
+| HPD complaint | `HEAT/HOT WATER` → `heat`; `UNSANITARY CONDITION` + `PESTS` → `pests`; otherwise `repairs` | As in rule | 1 | `problem_status` |
+| Rodent | `Failed for Rat Activity`, with or without `and Other Reason` | `pests` | 3 | Open until a later `Passed` |
+| Rodent | `Failed for Other Reason` | `pests` | 1 | Open until a later `Passed` |
+| Bedbug | Infested units > 0 | `bedbugs` | 1 all eradicated · 2 some remain · 3 re-infested | Open if infested > eradicated |
+| 311 | `Noise*`, excluding `Noise - Helicopter` and config list | `noise` | 1 | `status` |
+
+---
+
+## 4. Layout
+
+```
+package.json                  "type": "module"
+.env.example
+.github/workflows/test.yml
+lib/
+  sources.js                  dataset IDs, windows, radius
+  socrata.js                  paginated SODA client
+  geosearch.js
+  bbl.js                      normalize and validate
+  building.js                 resolve address, PLUTO lookup, upsert
+  schemas.js                  Zod schemas, Issue JSDoc typedef
+  cleaning-rules.js           drop rules
+  collapse.js                 repeat collapsing
+  fetchers/                   hpd-violations, hpd-complaints, rodent, bedbug, 311
+  ingest.js                   runs fetchers, writes to the database
+  issues.js                   getBuildingIssues()
+scripts/
+  ingest.js                   CLI: node scripts/ingest.js "161 Newel St"
+  capture-fixtures.js
+supabase/migrations/
+tests/  tests/fixtures/
+```
+
+`lib/` sits at the repo root so the Next.js app can import it directly later.
+
+---
+
+## 5. Order
+
+```mermaid
+graph TD
+  D1[DATA-01 Scaffold] --> D2[DATA-02 Supabase + PostGIS]
+  D2 --> D3[DATA-03 Schema]
+  D1 --> D4[DATA-04 Socrata client]
+  D4 --> D5[DATA-05 Fixtures + schemas]
+  D3 --> D6[DATA-06 Building resolver]
+  D5 --> D6
+  D5 --> D7[DATA-07 Issue shape + cleaning]
+  D7 --> D8[DATA-08 HPD violations]
+  D7 --> D9[DATA-09 HPD complaints]
+  D7 --> D10[DATA-10 Rodent]
+  D7 --> D11[DATA-11 Bedbug]
+  D7 --> D12[DATA-12 311 noise]
+  D6 --> D13[DATA-13 Ingest + CLI]
+  D8 --> D13
+  D9 --> D13
+  D10 --> D13
+  D11 --> D13
+  D12 --> D13
+  D13 --> D14[DATA-14 Read + collapse]
+  D14 --> D15[DATA-15 Verify end to end]
+```
+
+---
+
+## 6. Tickets
+
+### Foundation
+
+#### DATA-01 — Scaffold the JavaScript project · S
+**Depends on:** nothing
+
+- Add `package.json` with ES modules and Node 22.12+ (the latest Supabase client and Vitest need it). The only dependencies are `zod`, `@supabase/supabase-js` and dev `vitest`. Use built-in `fetch` and `node --env-file`.
+- Add `.env.example` with `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` and `SOCRATA_APP_TOKEN` (Supabase is deprecating the `anon` and `service_role` keys by the end of 2026), and put `.env` in `.gitignore`.
+- Add a GitHub Action that runs Vitest on every PR.
+
+**Done when:** `npm test` passes locally and in CI, and the repo contains no `.ts` files.
+
+#### DATA-02 — Create Supabase project and enable PostGIS · S
+**Depends on:** DATA-01
+
+- Create the Supabase project and register the Socrata app token. Both need a person with the accounts.
+- Run `supabase init` and `supabase link`, then add a first migration: `create extension if not exists postgis with schema extensions`. Apply it with `supabase db push`.
+
+**Done when:** `select extensions.postgis_version()` returns a version on the hosted project, and the secrets exist only in `.env` and project settings.
+
+#### DATA-03 — Create the schema · M
+**Depends on:** DATA-02
+
+```sql
+create table buildings (
+  bbl text primary key check (bbl ~ '^[1-5][0-9]{9}$'),
+  bin text,
+  address text not null,
+  borough text not null,
+  geom extensions.geography(Point, 4326) not null,
+  units_res int,                -- null when PLUTO has no match
+  year_built int,
+  updated_at timestamptz not null default now()
+);
+
+create table issues (
+  source text not null check (source in ('hpd_violation','hpd_complaint','rodent','bedbug','311')),
+  source_id text not null,
+  bbl text check (bbl ~ '^[1-5][0-9]{9}$'),  -- no FK: 311 rows may reference unsearched buildings
+  category text not null check (category in ('repairs','heat','pests','bedbugs','noise')),
+  severity smallint not null check (severity between 1 and 3),
+  status text not null check (status in ('open','closed')),
+  observed_at timestamp,        -- NYC wall-clock time; the sources have no time zone
+  description text not null,
+  geom extensions.geography(Point, 4326),
+  raw jsonb not null,
+  fetched_at timestamptz not null default now(),
+  primary key (source, source_id)
+);
+create index on issues using gist (geom);
+create index on issues (bbl, source);
+
+create table source_fetches (
+  bbl text not null references buildings on delete cascade,
+  source text not null,
+  last_attempt_at timestamptz not null,
+  last_success_at timestamptz,  -- freshness is checked against this
+  last_error text,
+  row_count int,
+  latest_record_at timestamp,   -- e.g. last bedbug filing, even if it reported zero
+  primary key (bbl, source)
+);
+```
+
+- Add RPC `issues_near(lat, lon, radius_m, since)`, returning issue rows plus a computed `distance_m` using `ST_DWithin`. The Supabase client can't express this query directly. Set the function's `search_path` to `public, extensions` so it can find PostGIS.
+- Enable RLS on all three tables. `buildings` and `issues` are public-read, and only the service role writes. `source_fetches` has no public policy.
+
+**Done when:** migrations apply with `supabase db push`; tests against the hosted project show the publishable key can read issues but not write them, can't read `source_fetches`, and `issues_near` returns only rows inside the radius, nearest first. Tests use reserved fake BBLs and `source_id` values, and remove only those rows afterward.
+
+### Source access
+
+#### DATA-04 — Pin sources and build the Socrata client · S
+**Depends on:** DATA-01
+
+- Put the IDs from section 2, the time windows from spec §5.2 and the radius in `lib/sources.js`.
+- `querySocrata(datasetId, { select, where, order })` sends the app token, encodes parameters and follows pages.
+- **Pagination is the critical part:** SODA returns only 1,000 rows by default, with no error. Page with `$limit`, `$offset` and a stable `$order` until a short page returns.
+- Retry 429 and 5xx up to 3 times with backoff; don't retry other 4xx. Set a request timeout. Errors name the source and query, and never include the token.
+
+**Done when:** mocked-`fetch` tests cover a multi-page result, retry then success, retry exhaustion, and a 400 with no retry. A failure partway through paging throws and never returns partial rows.
+
+#### DATA-05 — Capture fixtures and write Zod schemas · M
+**Depends on:** DATA-04
+
+- Choose test addresses across boroughs: many violations, clean, 100+ units, 1–5 units, near nightlife, **a condo** (`75xx` lot) and **a lot with several buildings**.
+- `scripts/capture-fixtures.js` saves real responses from every source to `tests/fixtures/`.
+- Write one Zod schema per response in `lib/schemas.js`, requiring only the fields the code uses so new upstream columns don't break anything.
+- Re-run the citywide `group by bbl` counts with a token and record timings for the grading work. Without a token, violations took 21 s, 311 noise took 110 s, and a grouped rodent query timed out at 120 s.
+
+**Done when:** every schema passes against every fixture; written-up answers exist for how condos and multi-building lots appear in each source.
+
+##### DATA-05 findings (November 2–3, 2026)
+
+**Test buildings** (fixtures in `tests/fixtures/<source>/<label>.json`; re-capture with `node --env-file=.env scripts/capture-fixtures.js`):
+
+| Label | Address | BBL | PLUTO units / buildings |
+|---|---|---|---|
+| `many-violations` | 2818 Bronx Park East, BX | `2045060040` | 680 / 6 |
+| `clean` | 109 Bruckner Blvd, BX | `2022780059` | 20 / 1 |
+| `large` | 50-01 2nd St, QN | `4000160008` | 199 / 1 |
+| `small` | 9 Carroll Place, SI | `5000030028` | 2 / 1 |
+| `nightlife` | 190 Orchard St, MN | `1004120010` | 17 / 1 |
+| `condo` | 39 Whitehall St, MN | `1000087501` | 97 / 1 |
+| `multi-building` | 281 Marcus Garvey Blvd, BK | `3016290001` | 175 / 6 |
+| `condo-multi-building` | 1580 Metropolitan Ave (Parkchester), BX | `2039437501` | 3,378 / 46 |
+
+Fixtures keep the newest 200 rows per query; `total_rows` records the full count.
+
+**How condos appear.** Every source uses the condo's billing BBL (`75xx` lot), never unit lots (`1001`–`6999`):
+
+| Source | Condo rows carry | Notes |
+|---|---|---|
+| GeoSearch | Billing BBL | `39 Whitehall St` → `1000087501`; Parkchester address → `2039437501` |
+| PLUTO | Billing BBL, one row | `unitsres` covers the whole condo |
+| HPD violations | Billing BBL | The 39 Whitehall violation is filed under "2 WATER STREET" |
+| HPD complaints | Billing BBL | Parkchester: 1,403 rows, all on `2039437501` |
+| Rodent | Billing BBL | Parkchester: 12 rows on `2039437501` |
+| Bedbug | Billing BBL | One filing per building per year |
+| 311 | Billing BBL | No unit-lot BBLs in any 311 fixture |
+
+So querying by the billing BBL that GeoSearch returns finds a condo's records; no unit-to-billing lookup is needed.
+
+**How multi-building lots appear.** Every BBL-scoped source puts all buildings on one BBL, separated only by BIN/`building_id`:
+
+| Lot | Violations BINs | Complaints BINs | Rodent BINs | Bedbug BINs |
+|---|---|---|---|---|
+| 281 Marcus Garvey Blvd (6 buildings) | 5 | 5 | 2 | 5 |
+| 2800 Bronx Park East (6 buildings) | 6 | 6 | 3 | 6 |
+| Parkchester (46 buildings, saved rows only) | 32 | 38 | 9 | 45 |
+
+- **The BIN GeoSearch returns is not a reliable filter.** For 281 Marcus Garvey Blvd, GeoSearch's BIN `3325012` matches 0 violation, complaint and bedbug rows, which all use 5 other BINs. Filtering by BIN would show that building as clean.
+- **Recommendation for DATA-06 and grading:** report per lot (BBL), which is what spec §5.2 queries, and show the PLUTO building count so users know a result covers several buildings. PLUTO `unitsres` is also per lot, so per-unit rates stay consistent. Parkchester-sized lots (46 buildings) will look worse per search than per building; grading should decide whether that needs a note.
+- 311 is radius-based, so it ignores lot boundaries; 311 rows near a condo carry the billing BBL.
+
+**Schema notes** (`lib/schemas.js`, checked by `tests/schemas.test.js`):
+- `novissueddate` is missing on 24 of 626 saved violation rows; `inspectiondate` was present on all, but stays optional because DATA-08 falls back between them.
+- Violation classes seen: A, B, C, I. Statuses: `Open`, `Close`.
+- 311: `bbl` missing on 199 of 1,600 saved rows; `resolution_description` missing on 54.
+- One bedbug row has no `filling_period_end_date`, which is part of DATA-11's default `source_id`.
+- Rodent results seen include `Bait applied`, which DATA-10 drops.
+
+**Citywide `group by bbl` timings with the app token** (single runs, first 1,000 groups ordered by count, November 3):
+
+| Query | With token | Without token (earlier) |
+|---|---|---|
+| Violations, all time | 14.1 s | 21 s |
+| Violations, last 3 years | 6.2 s (a similar query timed out at 180 s on November 2) | — |
+| 311 noise, last 12 months | 12.2 s | 110 s |
+| Rodent, last 2 years | Timed out at 140 s | Timed out at 120 s |
+
+- Timings vary a lot between runs, so precomputed baselines should not depend on a live citywide query finishing.
+- The largest 311 noise group is `bbl` null (51,069 rows): many noise complaints have no building.
+- The rodent grouped query still doesn't finish; grading baselines for rodents need another approach (smaller windows, per-borough queries, or a bulk export).
+
+#### DATA-06 — Resolve an address to a building · S
+**Depends on:** DATA-03, DATA-05
+
+- `lib/bbl.js`: `normalizeBbl()` converts `"4087860042.00000000"` to `"4087860042"` and returns null for invalid values.
+- `lib/geosearch.js`: return the top 5 matches with label, BBL, BIN and coordinates, for later use by `/api/geocode`.
+- `lib/building.js`: look up `unitsres` and `yearbuilt` in PLUTO, then upsert into `buildings`.
+- A missing PLUTO row, or `unitsres = 0`, must not fail the upsert. Store what PLUTO gives and leave grading to handle it.
+
+**Done when:** tests cover BBL normalization, a PLUTO miss and a repeat upsert. `161 Newel St` resolves to BBL `3026230011`, BIN `3065755`.
+
+### Fetchers
+
+Each fetcher exports `fetch(building)` and returns `{ issues, latestRecordAt }`. It validates the response, maps it to the `Issue` shape, applies drop rules and has fixture-based tests.
+
+#### DATA-07 — Define the Issue shape and shared cleaning rules · S
+**Depends on:** DATA-05
+
+- Add a JSDoc `Issue` typedef and Zod schema (spec §5.2 without `distanceM`), and export the shape to frontend developers per execution plan §5.
+- `lib/cleaning-rules.js` holds the 311 exclusions and "drop if no date and no location" as tunable data.
+- A shared helper validates `bbl` and builds the EWKT string `SRID=4326;POINT(lon lat)`, with longitude first, for `geom`.
+
+**Done when:** tests cover each drop rule, including that a row missing only one of date and location is kept.
+
+#### DATA-08 — HPD violations fetcher · M
+**Depends on:** DATA-07
+
+- Query: `bbl = X AND (inspectiondate >= 3 years ago OR violationstatus = 'Open')`.
+- Apply the mapping in section 3. Pest and heat matching uses word-boundary patterns held in config.
+- Confirm what class I means on the dataset page, then either keep the default (drop) or map it.
+- Fall back to `novissueddate` when `inspectiondate` is empty.
+
+**Done when:** a test proves "APPROACH" isn't tagged as a pest and "ROACHES" is; an open violation older than 3 years is returned; classes map to severity correctly.
+
+#### DATA-09 — HPD complaints fetcher · S
+**Depends on:** DATA-07
+
+- Query: `bbl = X AND received_date >= 12 months ago`, excluding `problem_duplicate_flag = 'Y'`.
+- `source_id` is `problem_id`. `description` combines `major_category`, `minor_category` and `problem_code`.
+
+**Done when:** tests cover flagged duplicates being dropped and each category mapping, including that mold goes to `repairs`.
+
+#### DATA-10 — Rodent inspections fetcher · S
+**Depends on:** DATA-07
+
+- Query by `boro_code`, `block` and `lot` so rows with no `bbl` are included; check in the fixtures that block and lot formats match the BBL parts.
+- Window: last 2 years. Keep `Passed` rows long enough to close earlier failures, then don't emit them as issues.
+- Check whether `job_id` is unique. Default `source_id` is `job_id|inspection_date`.
+- Report `latest_record_at` from any real inspection, including a pass.
+
+**Done when:** tests cover a row with no BBL being found, bait and stoppage rows being dropped, and a failure followed by a pass becoming closed.
+
+**Findings (November 4, 2026):**
+- `job_id` is not unique: it identifies one case (`Initial`, then `Compliance` re-inspections and `Treatments`, until a pass). `job_id|inspection_date` had no repeats in live data from August 1 to November 4, so it is the `source_id`.
+- Only `Initial` and `Compliance` rows are inspections. `Treatments` (`Bait applied`, `Monitoring visit`), `Stoppage` and `Clean Ups` are dropped and don't count toward `latest_record_at`.
+- Block and lot are unpadded text (`'412'`, `'10'`); the only zero-starting values are junk `0`/`0` rows. About 3% of recent rows have no `bbl`, and all of them have a block and lot. Issues take the **searched building's BBL**, not the row's: every returned row matched this lot, and a null BBL would hide the issue from reads by BBL and from DATA-13's delete reconciliation.
+- Decided: a failure closes only when a later inspection **in the same `job_id`** passes, so a pass in another building on a multi-building lot doesn't close it. Each failed inspection is its own issue; DATA-14 collapses repeats.
+
+#### DATA-11 — Bedbug filings fetcher · S
+**Depends on:** DATA-07
+
+- Query: `bbl = X`, latest 2 filing years.
+- Emit issues only where `infested_dwelling_unit_count > 0`. `raw` retains the unit counts for per-unit grading.
+- Report `latest_record_at` from any filing, so "reported zero" and "never filed" stay distinguishable.
+- Default `source_id` is `building_id|registration_id|filing_date|filling_period_end_date` (the misspelling is upstream). Check citywide that it is unique, and add fields if not.
+
+**Done when:** tests cover a zero filing (no issue, date recorded) and the three severity cases. The uniqueness check is recorded in the ticket.
+
+**Uniqueness check (November 4, 2026, all 724,411 rows):** `building_id|registration_id|filing_date|filling_period_end_date` is **not unique**: it repeats up to 18 times (building `893949`; `137668` 16 times). In both groups checked, the repeated rows are identical in every field except Socrata's internal `:id`, so adding fields can't separate them. The composite stays the `source_id`, and the fetcher keeps one row per building per filing period, which also removes these duplicates before upsert.
+
+**Other findings and decisions:**
+- A filing year is the period November 1 – October 31. Most buildings file in December, but late filings are common (190 Orchard St files in June/July for the period that ended the previous October), so "latest 2 filing years" means the 2 latest **filing periods**, not filing dates.
+- 129 rows have no period dates; the period is inferred from `filing_date` (filed Nov/Dec of year Y → period ending Oct Y; Jan–Oct → period ending Oct Y−1).
+- Decided: the 2 latest periods are chosen **across the whole lot**, so a building that stopped filing shows nothing recent.
+- Decided: buildings sometimes refile for a period (building `808400`: December 2025 and May 2026); only the **newest filing per building per period** is kept.
+- Severity: re-infested > 0 → 3; infested > eradicated → 2; all eradicated → 1. Status is open when infested > eradicated.
+
+#### DATA-12 — 311 noise fetcher · M
+**Depends on:** DATA-07
+
+- Query: `within_circle(location, lat, lon, 150) AND created_date >= 12 months ago AND complaint_type like 'Noise%'`.
+- Exclude helicopter and other configured types, plus duplicate and out-of-jurisdiction closures. Those closures are only described in `resolution_description`, so collect the real wording from fixtures first.
+- Do not pull `HEAT/HOT WATER` from 311.
+- Keep each row's own validated `bbl`.
+
+**Done when:** tests cover helicopter and closure exclusions, a null `bbl` for unaddressed complaints, and a row whose BBL differs from the searched building's.
+
+### Assembly
+
+#### DATA-13 — Ingest orchestrator and CLI · M
+**Depends on:** DATA-06, DATA-08 to DATA-12
+
+`ingest(building)` runs these steps for each source:
+
+1. Skip the source if `last_success_at` is under 24 hours old.
+2. Run all fetchers with `Promise.allSettled`, so one failure doesn't stop the others.
+3. Upsert issues in batches on `(source, source_id)`.
+4. **For BBL-scoped sources only, delete rows for this BBL whose ID wasn't returned.** Otherwise an old open violation that gets closed drops out of the query window and stays "open" here forever.
+5. Update `source_fetches`. On failure, record the error and leave existing rows untouched.
+
+Never reconcile deletes for 311 rows, since they're shared with neighboring buildings.
+
+Add `scripts/ingest.js "<address>"`, printing per-source counts and errors, with `--force` to skip the freshness check.
+
+**Done when:** tests against the hosted project, using reserved fake BBLs, show that a second run within 24 hours fetches nothing; a re-run creates no duplicates; a status change updates in place; **a failed source deletes nothing**; one failed source still lets the others save.
+
+#### DATA-14 — Read clean issues and collapse repeats · M
+**Depends on:** DATA-13
+
+`getBuildingIssues(bbl)` returns building-scoped rows, plus 311 rows from `issues_near` with `distance_m`, plus a list of sources that failed or are stale.
+
+`lib/collapse.js` is a pure function applied to 311 rows only (HPD records are already unique):
+
+- Same type + same location + same night → 1. A night runs 6 pm to 6 am and belongs to the date it started on.
+- Same type + same building + same daytime calendar day → 1.
+- Each collapsed row keeps its `source_id` list and count.
+
+**Done when:** tests cover 10 complaints in one night becoming 1; 11 pm and 2 am sharing a night; 2 am and 7 pm the next evening staying separate; a read with a failed source naming that source. No database rows change on read.
+
+#### DATA-15 — Verify end to end · S
+**Depends on:** DATA-14
+
+- Run the CLI against every test address on the hosted project with a real token.
+- Compare counts for 3 addresses by hand with the city's public HPD and 311 records.
+- Record time per source. If a fresh ingest is too slow for a page load (the 9.4 s above suggests it may be), note it for the report-route work.
+- Write surprises and decisions back into `spec.md`, including the TypeScript references in decision 1.
+
+**Done when:** every test address ingests cleanly, the high-violation address visibly has more issues than the clean one, timings are recorded, and the spec matches what was built.
+
+##### DATA-15 results (November 5, 2026)
+
+**Every test address ingests cleanly.** Three forced runs of all 8 addresses with the app token; the final run had no failed source. Results as read back by `getBuildingIssues`:
+
+| Address | Violations (open) | Complaints | Rodent | Bedbug | 311 noise → collapsed |
+|---|---|---|---|---|---|
+| 2818 Bronx Park East (high violations) | 3,250 (1,135) | 606 | 14 | 2 | 232 → 195 |
+| 109 Bruckner Blvd (clean) | 1 (1) | 0 | 0 | 0 | 10 → 10 |
+| 50-01 2nd St | 0 | 0 | 0 | 0 | 185 → 166 |
+| 9 Carroll Place | 0 | 0 | 0 | 0 | 105 → 101 |
+| 190 Orchard St | 23 (3) | 45 | 0 | 0 | 1,181 → 913 |
+| 39 Whitehall St | 1 (0) | 0 | 0 | 0 | 263 → 207 |
+| 281 Marcus Garvey Blvd | 268 (85) | 102 | 3 | 2 | 375 → 288 |
+| Parkchester (1580 Metropolitan Ave) | 3,264 (1,824) | 1,163 | 5 | 16 | 268 → 230 |
+
+**Timings per source** (16 fetches each across two full runs; fetches run in parallel, so the total is roughly the slowest source):
+
+| Source | Median | Max |
+|---|---|---|
+| HPD violations | 0.3 s | 7.3 s |
+| HPD complaints | 1.2 s | 12.8 s |
+| Rodent | 0.7 s | 8.1 s |
+| Bedbug | 0.6 s | 7.9 s |
+| 311 noise | 1.4 s | 9.3 s |
+| **Whole ingest** | **7.5 s** | **15.1 s** |
+
+Every source occasionally takes 7–13 s, and an earlier run of 161 Newel St took 66 s (most likely a 30 s timeout plus retry). **A fresh ingest is too slow to block a page load.** For the report route: show saved data immediately and refresh in the background, and let 311 load separately.
+
+**Bug found and fixed: paging dropped and duplicated rows.** Socrata's count for Parkchester's violations alternated between 3,279 and 3,290 from call to call: it serves copies of the dataset that briefly disagree. With an `inspectiondate DESC, violationid` order, consecutive pages came from different copies, so one read returned 11 duplicate rows and missed 11 others, and the duplicates failed the upsert ("ON CONFLICT DO UPDATE command cannot affect row a second time"). Ordering by `:id` returned no duplicates in 13 test reads, so every fetcher now orders by `:id`, and `ingest` drops repeated IDs before upserting as a safety net. Results for Parkchester still move by 11 rows between runs; that is the dataset itself, and the next ingest corrects it.
+
+---
+
+## 7. Risks
+
+| Risk | Ticket | Mitigation |
+|---|---|---|
+| Rows silently truncated at 1,000 | DATA-04 | Page until a short page; a partial result throws |
+| Reconcile delete wipes good data | DATA-13 | Delete only after a fully paged success, never for 311 |
+| Condos and multi-building lots attach issues to the wrong record, since BBL is a lot rather than a building | DATA-05 | Test addresses for both; update spec before DATA-13 if needed |
+| Text matching mislabels violations | DATA-08 | Patterns in config, tested on real fixtures, `raw` retained for re-runs |
+| Fresh ingest too slow for a live page | DATA-15 | Measure with a token; a slow 311 fetch can load separately |
+| Upstream fields or IDs change | DATA-05 | Zod fails loudly, and the IDs live in one file |
+| Database tests touch real rows, since there's no local database | DATA-03, DATA-13 | Tests use reserved fake BBLs and clean up only those; any lost real data can be refetched |
+| 311 rows accumulate indefinitely | DATA-13 | `issues_near` filters by date so results stay right; add pruning if storage becomes a concern |
