@@ -3,9 +3,10 @@ import type { RatingPreferences } from '../domain'
 import { createServices } from '../services/runtime'
 import { createWorkspaceStorage } from '../services/storage'
 import { defaultPreferences, validatePreferences } from '../services/preferences'
+import { useAuth } from './AuthContext'
 
 type Services = ReturnType<typeof createServices>
-
+type SavedState = { owner: string; ids: string[]; loading: boolean; error: string }
 type Workspace = Services & {
   savedIds: string[]
   savedLoading: boolean
@@ -14,10 +15,6 @@ type Workspace = Services & {
   saveBuilding: (id: string, saved: boolean) => Promise<void>
   compareIds: string[]
   setCompareIds: (ids: string[]) => void
-  session: { email: string } | null
-  sessionLoading: boolean
-  sessionError: string
-  signOut: () => Promise<void>
   preferences: RatingPreferences
   savePreferences: (value: RatingPreferences) => void
 }
@@ -25,6 +22,11 @@ type Workspace = Services & {
 const WorkspaceContext = createContext<Workspace | null>(null)
 
 export function WorkspaceProvider({ services, children }: { services: Services; children: ReactNode }) {
+  const { user, loading } = useAuth()
+  const userId = user?.id
+  const owner = userId ?? 'anonymous'
+  const ownerRef = useRef(owner)
+  ownerRef.current = owner
   const [storage] = useState(() => createWorkspaceStorage(localStorage, services.housing.mode))
   const [compareIds, updateComparison] = useState(storage.getComparison)
   const [preferences, updatePreferences] = useState(() => {
@@ -33,71 +35,46 @@ export function WorkspaceProvider({ services, children }: { services: Services; 
     return stored && (stored.mode !== 'advanced' || options.supportsAdvanced) && !validatePreferences(stored, options)
       ? stored : defaultPreferences(options)
   })
-  const [session, setSession] = useState<Workspace['session']>(null)
-  const [sessionLoading, setSessionLoading] = useState(services.auth.available)
-  const [sessionError, setSessionError] = useState('')
-  const [savedIds, setSavedIds] = useState<string[]>([])
-  const [savedLoading, setSavedLoading] = useState(true)
-  const [savedError, setSavedError] = useState('')
+  const [saved, setSaved] = useState<SavedState>({ owner, ids: [], loading: true, error: '' })
   const [savedAttempt, setSavedAttempt] = useState(0)
-  const saveGeneration = useRef(0)
   const pendingSaves = useRef(new Set<string>())
+  const requiresAccount = services.housing.mode === 'api'
 
   useEffect(() => {
-    if (!services.auth.available) return
-    const controller = new AbortController()
-    services.auth.getSession(controller.signal).then(value => {
-      if (!controller.signal.aborted) setSession(value)
-    }).catch(error => {
-      if (!controller.signal.aborted) setSessionError(error.message)
-    }).finally(() => {
-      if (!controller.signal.aborted) setSessionLoading(false)
-    })
-    return () => controller.abort()
-  }, [services])
-
-  useEffect(() => {
-    if (sessionLoading) return
-    if (services.auth.available && !session) {
-      setSavedLoading(false)
+    if (loading) return
+    if (requiresAccount && !userId) {
+      setSaved({ owner, ids: [], loading: false, error: '' })
       return
     }
     const controller = new AbortController()
-    setSavedLoading(true)
-    setSavedError('')
-    services.saved.list(controller.signal).then(ids => {
-      if (!controller.signal.aborted) setSavedIds(ids)
+    setSaved({ owner, ids: [], loading: true, error: '' })
+    services.saved.list(controller.signal, userId).then(ids => {
+      if (!controller.signal.aborted) setSaved({ owner, ids, loading: false, error: '' })
     }).catch(error => {
-      if (!controller.signal.aborted) setSavedError(error.message)
-    }).finally(() => {
-      if (!controller.signal.aborted) setSavedLoading(false)
+      if (!controller.signal.aborted) setSaved({ owner, ids: [], loading: false, error: error.message })
     })
     return () => controller.abort()
-  }, [services, session, sessionLoading, savedAttempt])
+  }, [services, owner, userId, loading, requiresAccount, savedAttempt])
 
-  async function saveBuilding(id: string, saved: boolean) {
-    if (pendingSaves.current.has(id)) return
-    pendingSaves.current.add(id)
-    const generation = saveGeneration.current
+  async function saveBuilding(id: string, value: boolean) {
+    if (loading || (requiresAccount && !userId)) throw new Error('Sign in before saving this building.')
+    const pendingKey = owner + ':' + id
+    if (pendingSaves.current.has(pendingKey)) return
+    pendingSaves.current.add(pendingKey)
     try {
-      await services.saved.set(id, saved)
-      if (generation !== saveGeneration.current) return
-      setSavedIds(current => saved ? [...new Set([...current, id])] : current.filter(value => value !== id))
+      await services.saved.set(id, value, userId)
+      if (ownerRef.current !== owner) return
+      setSaved(current => current.owner !== owner ? current : {
+        ...current, ids: value ? [...new Set([...current.ids, id])] : current.ids.filter(item => item !== id),
+      })
     } finally {
-      pendingSaves.current.delete(id)
+      pendingSaves.current.delete(pendingKey)
     }
   }
 
-  async function signOut() {
-    await services.auth.signOut()
-    saveGeneration.current++
-    setSession(null)
-    setSavedIds([])
-    setSavedError('')
-  }
-
+  const currentSaved = saved.owner === owner && !loading ? saved : { ids: [], loading: true, error: '' }
   return <WorkspaceContext.Provider value={{
-    ...services, session, sessionLoading, sessionError, signOut, savedIds, savedLoading, savedError, saveBuilding,
+    ...services, savedIds: currentSaved.ids, savedLoading: currentSaved.loading, savedError: currentSaved.error, saveBuilding,
     retrySaved: () => setSavedAttempt(attempt => attempt + 1),
     compareIds,
     setCompareIds: ids => {

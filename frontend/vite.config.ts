@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: target ? {
-      proxy: Object.fromEntries(['/api', '/auth/callback'].map(path => [path, { target, changeOrigin: false }])),
+      proxy: { '/api': { target, changeOrigin: false } },
     } : undefined,
   }
 })

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Bookmark, ChevronRight, House, Menu, UserRound, X } from 'lucide-react'
+import { Bookmark, ChevronRight, House, Menu, X } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useWorkspace } from '../app/workspace'
+import { useAuth } from '../app/AuthContext'
+import { AccountMenu } from './AccountMenu'
 import { AddressSearch } from './AddressSearch'
 
 export function Brand() {
@@ -9,7 +11,8 @@ export function Brand() {
 }
 
 export function Layout() {
-  const { housing, auth, compareIds } = useWorkspace()
+  const { housing, compareIds } = useWorkspace()
+  const { user, loading } = useAuth()
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const [menu, setMenu] = useState(false)
@@ -34,7 +37,9 @@ export function Layout() {
           <NavLink to="/how-it-works">How it works</NavLink>
           <NavLink to="/compare">Compare{compareIds.length > 0 && <span className="nav-count">{compareIds.length}</span>}</NavLink>
           <NavLink to="/saved"><Bookmark size={15} /> Saved</NavLink>
-          {auth.available && <NavLink to="/account"><UserRound size={15} /> Account</NavLink>}
+          {loading ? <span className="auth-nav-status" role="status">Checking account…</span> : user ? <AccountMenu /> : <>
+            <NavLink to="/login">Log In</NavLink><NavLink to="/signup">Sign Up</NavLink>
+          </>}
         </nav>
         {report && <div className="header-search">
           <AddressSearch compact label="Search another address" onSearch={query => navigate('/search?q=' + encodeURIComponent(query))}

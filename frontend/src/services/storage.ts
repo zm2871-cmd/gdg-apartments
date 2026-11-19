@@ -24,12 +24,16 @@ function write(storage: Storage, key: string, value: unknown) {
 
 export class LocalSavedAdapter implements SavedAdapter {
   constructor(private readonly storage: Storage) {}
-  async list() {
-    return read(this.storage, savedKey, idsSchema, [])
+  async list(_signal?: AbortSignal, userId?: string) {
+    return read(this.storage, this.key(userId), idsSchema, [])
   }
-  async set(id: string, saved: boolean) {
-    const ids = read(this.storage, savedKey, idsSchema, [])
-    write(this.storage, savedKey, saved ? [...new Set([...ids, id])] : ids.filter(value => value !== id))
+  private key(userId?: string) {
+    return userId ? savedKey + ':user:' + encodeURIComponent(userId) : savedKey
+  }
+  async set(id: string, saved: boolean, userId?: string) {
+    const key = this.key(userId)
+    const ids = read(this.storage, key, idsSchema, [])
+    write(this.storage, key, saved ? [...new Set([...ids, id])] : ids.filter(value => value !== id))
   }
 }
 

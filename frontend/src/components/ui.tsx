@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
 import { ArrowRight, Bookmark, CircleAlert, GitCompareArrows } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useState } from 'react'
+import { useAuth } from '../app/AuthContext'
+import { loginDestination } from '../app/authNavigation'
 import { useWorkspace } from '../app/workspace'
 import type { Building, Letter } from '../domain'
 
@@ -32,7 +34,10 @@ export function EmptyState({ title, children, action }: { title: string; childre
 }
 
 export function BuildingActions({ building, compact = false }: { building: Building; compact?: boolean }) {
-  const { auth, session, sessionLoading, savedLoading, savedError, savedIds, saveBuilding, compareIds, setCompareIds } = useWorkspace()
+  const { housing, savedLoading, savedError, savedIds, saveBuilding, compareIds, setCompareIds } = useWorkspace()
+  const { user, loading } = useAuth()
+  const location = useLocation()
+  const cloud = housing.mode === 'api'
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const saved = savedIds.includes(building.id)
@@ -54,10 +59,10 @@ export function BuildingActions({ building, compact = false }: { building: Build
 
   return <div className="building-actions">
     <div className="action-row">
-      {auth.available && !session && !sessionLoading
-        ? <Link className="button secondary" to="/account"><Bookmark size={16} /> Sign in to save</Link>
-        : <button className="button secondary" disabled={pending || savedLoading || !!savedError || (auth.available && building.sample)}
-          title={savedError || (auth.available && building.sample ? 'Sample reports cannot be saved to an account.' : undefined)}
+      {cloud && !user && !loading
+        ? <Link className="button secondary" to={loginDestination(location.pathname + location.search)}><Bookmark size={16} /> Sign in to save</Link>
+        : <button className="button secondary" disabled={pending || savedLoading || !!savedError || (cloud && building.sample)}
+          title={savedError || (cloud && building.sample ? 'Sample reports cannot be saved to an account.' : undefined)}
           aria-pressed={saved} onClick={toggleSave}><Bookmark size={16} fill={saved ? 'currentColor' : 'none'} />
           {pending ? 'Saving…' : saved ? compact ? 'Remove saved' : 'Saved' : 'Save'}</button>}
       <button className={'button ' + (comparing || compact ? 'secondary' : 'primary')} aria-pressed={comparing} onClick={toggleCompare}>

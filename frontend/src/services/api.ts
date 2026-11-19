@@ -3,7 +3,7 @@ import {
   categories, type Building, type BuildingReport, type Coverage, type Grade, type GradeCategory,
   type Issue, type RatingPreferences, type ScoringOptions, type Source,
 } from '../domain'
-import { ServiceError, type AuthAdapter, type HousingDataProvider, type SavedAdapter } from './contracts'
+import { ServiceError, type HousingDataProvider, type SavedAdapter } from './contracts'
 import { validatePreferences } from './preferences'
 
 const category = z.enum(categories)
@@ -38,21 +38,37 @@ const comparisonSchema = z.object({
   ranked: z.array(z.object({ id, value: z.number().nullable() })),
 })
 
+type ApiRequestOptions = RequestInit & { requiresAuth?: boolean; authenticatedUserId?: string }
+
 export class ApiClient {
   private readonly base: string
-  constructor(base: string, private readonly fetcher: typeof fetch = (...args) => fetch(...args)) {
+  constructor(
+    base: string,
+    private readonly fetcher: typeof fetch = (...args) => fetch(...args),
+    private readonly getAccessToken?: (expectedUserId?: string) => Promise<string | null>,
+  ) {
     this.base = base.trim().replace(/\/+$/, '')
     if (!/^\/(?!\/)/.test(this.base) && !/^https?:\/\/[^/]+/.test(this.base)) {
       throw new ServiceError('Set VITE_API_BASE_URL to an HTTP URL or a path such as /api.')
     }
   }
 
-  async request<T>(path: string, schema: z.ZodType<T>, options: RequestInit = {}) {
+  async request<T>(path: string, schema: z.ZodType<T>, options: ApiRequestOptions = {}) {
+    const { requiresAuth, authenticatedUserId, ...request } = options
+    request.signal?.throwIfAborted()
+    const headers = new Headers(request.headers)
+    headers.set('Accept', 'application/json')
+    if (request.body) headers.set('Content-Type', 'application/json')
+    if (requiresAuth) {
+      const token = await this.getAccessToken?.(authenticatedUserId)
+      if (!token) throw new ServiceError('Sign in to access saved apartments.', 401)
+      headers.set('Authorization', 'Bearer ' + token)
+    }
+    request.signal?.throwIfAborted()
     let response: Response
     try {
       response = await this.fetcher(this.base + path, {
-        ...options, credentials: 'include',
-        headers: { Accept: 'application/json', ...(options.body && { 'Content-Type': 'application/json' }) },
+        ...request, credentials: requiresAuth ? 'omit' : 'include', headers,
       })
     } catch (error) {
       if (options.signal?.aborted) throw error
@@ -184,39 +200,17 @@ export class ApiHousingDataProvider implements HousingDataProvider {
   }
 }
 
-export class ApiAuthAdapter implements AuthAdapter {
-  readonly available = true
-  constructor(private readonly client: ApiClient) {}
-  async getSession(signal?: AbortSignal) {
-    try {
-      return await this.client.request('/account', z.object({ email: z.email() }), { signal })
-    } catch (error) {
-      if (error instanceof ServiceError && error.status === 401) return null
-      throw error
-    }
-  }
-  async signIn(email: string) {
-    const result = await this.client.request('/auth', z.object({ message: z.string() }), {
-      method: 'POST', body: JSON.stringify({ email }),
-    })
-    return result.message
-  }
-  async signOut() {
-    await this.client.request('/auth', z.object({ signedOut: z.literal(true) }), { method: 'DELETE' })
-  }
-}
-
 export class ApiSavedAdapter implements SavedAdapter {
   constructor(private readonly client: ApiClient) {}
-  async list(signal?: AbortSignal) {
+  async list(signal?: AbortSignal, userId?: string) {
     const result = await this.client.request('/saved', z.object({
       buildings: z.array(z.object({ building_id: id })),
-    }), { signal })
+    }), { signal, requiresAuth: true, authenticatedUserId: userId })
     return [...new Set(result.buildings.map(row => row.building_id))]
   }
-  async set(id: string, saved: boolean) {
+  async set(id: string, saved: boolean, userId?: string) {
     await this.client.request<{ saved: true } | { deleted: true }>('/saved', saved ? z.object({ saved: z.literal(true) }) : z.object({ deleted: z.literal(true) }), {
-      method: saved ? 'POST' : 'DELETE',
+      method: saved ? 'POST' : 'DELETE', requiresAuth: true, authenticatedUserId: userId,
       body: JSON.stringify(saved ? { kind: 'building', ids: [id] } : { kind: 'building', id }),
     })
   }

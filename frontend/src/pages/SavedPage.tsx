@@ -7,7 +7,7 @@ import { BuildingActions, EmptyState, ErrorPanel, ReportLink, Skeleton } from '.
 import { locality } from '../domain'
 
 export default function SavedPage() {
-  const { housing, auth, session, sessionLoading, savedIds, savedLoading, savedError, retrySaved, saveBuilding } = useWorkspace()
+  const { housing, savedIds, savedLoading, savedError, retrySaved, saveBuilding } = useWorkspace()
   const { state, retry } = useRequest(signal => Promise.allSettled(savedIds.map(id => housing.getBuildingReport(id, signal))),
     JSON.stringify(savedIds), !savedLoading && savedIds.length > 0)
   const count = savedIds.length
@@ -15,9 +15,7 @@ export default function SavedPage() {
   return <div className="container page">
     <div className="page-heading"><p className="eyebrow"><Bookmark size={15} /> Your shortlist</p>
       <h1>Saved properties</h1><p>{housing.mode === 'mock' ? 'Revisit sample buildings saved in this browser.' : 'Revisit buildings saved to your account.'}</p></div>
-    {sessionLoading || savedLoading ? <Skeleton variant="rows" label="Loading saved properties" /> :
-      auth.available && !session ? <EmptyState title="Sign in to view saved properties"
-        action={<Link className="button primary" to="/account">Go to account</Link>}>Saved reports are tied to your account.</EmptyState> :
+    {savedLoading ? <Skeleton variant="rows" label="Loading saved properties" /> :
       savedError ? <ErrorPanel message={savedError} retry={retrySaved} /> :
       !count ? <EmptyState title="No saved properties yet" action={<Link className="button primary" to="/search">Search buildings</Link>}>
         Save a building from its report to find it here.

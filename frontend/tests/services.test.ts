@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ApiAuthAdapter, ApiClient, ApiHousingDataProvider, ApiSavedAdapter } from '../src/services/api'
+import { ApiClient, ApiHousingDataProvider, ApiSavedAdapter } from '../src/services/api'
 import { MockHousingDataProvider } from '../src/services/mock'
 import { createServices } from '../src/services/runtime'
 import { defaultPreferences, validatePreferences } from '../src/services/preferences'
@@ -143,27 +143,35 @@ describe('API adapter', () => {
     expect(result.weighted).toEqual(ids.map(id => ({ id, value: null })))
   })
 
-  it('uses the backend session cookie and the public saved-building contract', async () => {
+  it('attaches the current bearer token to private saved-building requests', async () => {
     const fetcher = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(Response.json({ error: { message: 'unauthorized' } }, { status: 401 }))
-      .mockResolvedValueOnce(Response.json({ email: 'renter@example.test' }))
       .mockResolvedValueOnce(Response.json({ buildings: [{ building_id: identity.id }], comparisons: [] }))
       .mockResolvedValueOnce(Response.json({ saved: true }))
       .mockResolvedValueOnce(Response.json({ deleted: true }))
-    const client = new ApiClient('/api', fetcher)
-    const auth = new ApiAuthAdapter(client)
+    const getToken = vi.fn().mockResolvedValueOnce('first-token').mockResolvedValue('refreshed-token')
+    const client = new ApiClient('/api', fetcher, getToken)
     const saved = new ApiSavedAdapter(client)
-    expect(await auth.getSession()).toBeNull()
-    expect(await auth.getSession()).toEqual({ email: 'renter@example.test' })
-    expect(await saved.list()).toEqual([identity.id])
-    await saved.set(identity.id, true)
-    await saved.set(identity.id, false)
-    expect(fetcher.mock.calls[3][1]).toMatchObject({
-      method: 'POST', credentials: 'include', body: JSON.stringify({ kind: 'building', ids: [identity.id] }),
+    expect(await saved.list(undefined, 'user-one')).toEqual([identity.id])
+    await saved.set(identity.id, true, 'user-one')
+    await saved.set(identity.id, false, 'user-one')
+    expect(getToken).toHaveBeenCalledWith('user-one')
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer first-token')
+    expect(new Headers(fetcher.mock.calls[1][1]?.headers).get('Authorization')).toBe('Bearer refreshed-token')
+    expect(fetcher.mock.calls[1][1]).toMatchObject({
+      method: 'POST', credentials: 'omit', body: JSON.stringify({ kind: 'building', ids: [identity.id] }),
     })
-    expect(fetcher.mock.calls[4][1]).toMatchObject({
-      method: 'DELETE', credentials: 'include', body: JSON.stringify({ kind: 'building', id: identity.id }),
+    expect(fetcher.mock.calls[2][1]).toMatchObject({
+      method: 'DELETE', body: JSON.stringify({ kind: 'building', id: identity.id }),
     })
+  })
+
+  it('requires a session for private API requests and keeps public requests available', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ candidates: [] }))
+    const client = new ApiClient('/api', fetcher, async () => null)
+    await expect(new ApiSavedAdapter(client).list()).rejects.toMatchObject({ status: 401 })
+    expect(fetcher).not.toHaveBeenCalled()
+    await expect(new ApiHousingDataProvider(client).searchBuildings('Sample')).resolves.toEqual([])
+    expect(new Headers(fetcher.mock.calls[0][1]?.headers).has('Authorization')).toBe(false)
   })
 
   it('reports HTTP, malformed payload, and network failures', async () => {
