@@ -1,0 +1,53 @@
+{
+  "source": "hpd_violations",
+  "label": "clean",
+  "address": "109 Bruckner Blvd, Bronx",
+  "bbl": "2022780059",
+  "query": {
+    "where": "bbl = '2022780059' AND (inspectiondate >= '2023-11-02T00:00:00' OR violationstatus = 'Open')",
+    "order": "inspectiondate DESC, violationid"
+  },
+  "captured_at": "2026-11-03T04:20:23.767Z",
+  "total_rows": 1,
+  "rows": [
+    {
+      "violationid": "15634014",
+      "buildingid": "996696",
+      "registrationid": "228257",
+      "boroid": "2",
+      "boro": "BRONX",
+      "housenumber": "109",
+      "lowhousenumber": "109",
+      "highhousenumber": "109",
+      "streetname": "BRUCKNER BOULEVARD",
+      "streetcode": "15920",
+      "zip": "10454",
+      "story": "1",
+      "block": "2278",
+      "lot": "59",
+      "class": "C",
+      "inspectiondate": "2022-12-28T00:00:00.000",
+      "approveddate": "2022-12-28T00:00:00.000",
+      "originalcertifybydate": "2023-01-11T00:00:00.000",
+      "originalcorrectbydate": "2023-01-04T00:00:00.000",
+      "ordernumber": "671",
+      "novid": "8235414",
+      "novdescription": "§ 27-2033 ADM CODE POST NOTICE, IN FORM APPROVED BY THE DEPARTMENT, STATING THE NAME AND LOCATION OF THE PERSON DESIGNATED BY THE OWNER TO HAVE KEY TO BUILDINGS HEATING SYSTEM BOILER ROOM ACCESS NOTICE IS MISSING , 1st STORY",
+      "novissueddate": "2022-12-29T00:00:00.000",
+      "currentstatusid": "2",
+      "currentstatus": "NOV SENT OUT",
+      "currentstatusdate": "2022-12-29T00:00:00.000",
+      "novtype": "Original",
+      "violationstatus": "Open",
+      "rentimpairing": "N",
+      "latitude": "40.804892",
+      "longitude": "-73.922834",
+      "communityboard": "1",
+      "councildistrict": "8",
+      "censustract": "1902",
+      "bin": "2128915",
+      "bbl": "2022780059",
+      "nta": "Mott Haven-Port Morris"
+    }
+  ]
+}

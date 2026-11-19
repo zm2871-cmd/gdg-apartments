@@ -16,9 +16,6 @@
     "test:e2e": "playwright test",
     "db:migrate": "npx supabase db push",
     "seed:demo": "tsx scripts/seed-demo.ts",
-    "check:sources": "tsx scripts/check-sources.ts",
-    "ingest:sample": "tsx scripts/ingest.ts",
-    "check:building": "tsx scripts/smoke-building.ts",
     "test:rls": "tsx scripts/test-rls.ts"
   },
   "dependencies": {

@@ -1,0 +1,90 @@
+{
+  "geocoding": {
+    "version": "0.2",
+    "attribution": "http://geosearch.planninglabs.nyc/attribution",
+    "query": {
+      "text": "161 Newel St",
+      "parser": "pelias",
+      "parsed_text": {
+        "subject": "161 Newel St",
+        "housenumber": "161",
+        "street": "Newel St"
+      },
+      "size": 5,
+      "private": false,
+      "lang": {
+        "name": "English",
+        "iso6391": "en",
+        "iso6393": "eng",
+        "via": "default",
+        "defaulted": true
+      },
+      "querySize": 20
+    },
+    "warnings": [
+      "invalid language provided via header"
+    ],
+    "engine": {
+      "name": "Pelias",
+      "author": "Mapzen",
+      "version": "1.0"
+    },
+    "timestamp": 1793748057766
+  },
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.949269,
+          40.727734
+        ]
+      },
+      "properties": {
+        "id": "1040913",
+        "gid": "nycpad:venue:1040913",
+        "layer": "venue",
+        "source": "nycpad",
+        "source_id": "1040913",
+        "country_code": "US",
+        "name": "161 NEWEL STREET",
+        "housenumber": "161",
+        "street": "NEWEL STREET",
+        "postalcode": "11222",
+        "accuracy": "point",
+        "country": "United States",
+        "country_gid": "whosonfirst:country:85633793",
+        "country_a": "USA",
+        "region": "New York",
+        "region_gid": "whosonfirst:region:85688543",
+        "region_a": "NY",
+        "county": "Kings County",
+        "county_gid": "whosonfirst:county:102082361",
+        "county_a": "BK",
+        "locality": "New York",
+        "locality_gid": "whosonfirst:locality:85977539",
+        "locality_a": "NYC",
+        "borough": "Brooklyn",
+        "borough_gid": "whosonfirst:borough:421205765",
+        "neighbourhood": "Greenpoint",
+        "neighbourhood_gid": "whosonfirst:neighbourhood:85823059",
+        "label": "161 NEWEL STREET, Brooklyn, NY, USA",
+        "addendum": {
+          "pad": {
+            "bbl": "3026230011",
+            "bin": "3065755",
+            "version": "26c"
+          }
+        }
+      }
+    }
+  ],
+  "bbox": [
+    -73.949269,
+    40.727734,
+    -73.949269,
+    40.727734
+  ]
+}

@@ -1,6 +1,6 @@
 # Official sources
 
-Metadata snapshots in `docs/source-metadata` were fetched directly on 2026-10-29. `npm run check:sources` checks metadata and a single row from all six datasets. `npm run check:building` exercises identity and four evidence adapters against a real address.
+Metadata snapshots in `docs/source-metadata` were fetched directly on 2026-10-29. The fetchers, cleaning rules and source checks now live in `data-pipeline/` (see `data-pipeline/data-pipeline-plan.md`).
 
 | Source | Dataset | Match / distinction |
 |---|---|---|

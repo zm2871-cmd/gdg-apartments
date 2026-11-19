@@ -55,6 +55,23 @@ Copy `.env.example` to `.env.local` to customize the defaults. Every `VITE_` val
 
 ## Connect the existing backend
 
+### Local setup (pipeline data)
+
+Building data comes from the data pipeline's Supabase project, through the Next app at the repo root. Use Node 22 (`nvm use 22`) for both.
+
+1. At the repo root, copy `.env.example` to `.env.local` and set `PIPELINE_SUPABASE_URL` and `PIPELINE_SUPABASE_SECRET_KEY` (ask a teammate for the pipeline project's keys). Set the `NEXT_PUBLIC_SUPABASE_*` keys too if you want to sign in and save buildings.
+2. Start the backend at the repo root: `npm install`, then `npm run dev` (port 3000).
+3. In `frontend/`, create `.env.local`:
+   ```
+   VITE_DATA_PROVIDER=api
+   VITE_API_BASE_URL=/api
+   HEARTHSTONE_DEV_API_TARGET=http://localhost:3000
+   ```
+4. Run `npm install` and `npm run dev` in `frontend/`, open the printed URL, and search for an NYC address, for example `281 Marcus Garvey Blvd`. The first report for a building takes a few seconds while the city data is fetched. Later views within 24 hours are fast.
+5. Optional end-to-end check, with the backend still running: `E2E_API=1 npm run test:e2e`. It runs only `tests/api.spec.ts`. The default `npm run test:e2e` stays in mock mode and skips it.
+
+### Deployment and contracts
+
 1. Start the AptSignal backend using its own environment and setup. In local development set `VITE_DATA_PROVIDER=api`, `VITE_API_BASE_URL=/api`, and `HEARTHSTONE_DEV_API_TARGET=http://localhost:3000` in the frontend. Restart Vite when the configuration changes.
 2. In deployment, serve the frontend and API on the same origin. Route `/api/*` and `/auth/callback` to the existing backend before applying the frontend’s history fallback. Preserve the original origin and forwarded host headers. The existing write routes validate the request origin against the backend request URL or `NEXT_PUBLIC_SITE_URL`.
 3. For account access, configure Supabase on the backend and set `NEXT_PUBLIC_SITE_URL` to the frontend’s public origin. Add its `/auth/callback` URL to the Supabase redirect allowlist. The existing PKCE callback exchanges the code and redirects to `/saved`. Keep session cookies on that origin. A cross-origin API URL is also accepted by the adapter, but would require credentialed CORS and compatible cookie and callback configuration on the server.

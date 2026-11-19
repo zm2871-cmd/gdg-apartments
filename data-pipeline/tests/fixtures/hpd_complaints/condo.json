@@ -1,0 +1,13 @@
+{
+  "source": "hpd_complaints",
+  "label": "condo",
+  "address": "39 Whitehall St, Manhattan",
+  "bbl": "1000087501",
+  "query": {
+    "where": "bbl = 1000087501 AND received_date >= '2025-11-02T00:00:00'",
+    "order": "received_date DESC, problem_id"
+  },
+  "captured_at": "2026-11-03T04:20:23.767Z",
+  "total_rows": 0,
+  "rows": []
+}
