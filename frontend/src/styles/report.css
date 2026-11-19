@@ -250,3 +250,36 @@
   .filter { min-height: 44px; }
   .marker-list summary { min-height: 44px; padding-block: 12px; }
 }
+
+/* Keep generated Markdown readable without inheriting page-heading sizes. */
+.assistant-messages { display: grid; gap: 16px; margin: 16px 0 24px; }
+.assistant-messages > li {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 1rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.assistant-message-label { display: block; margin-bottom: 10px; font-size: .83rem; color: var(--muted); }
+.assistant-message-content { max-width: 72ch; }
+.assistant-message-content :is(p, ul, ol, blockquote, pre) { margin: 0 0 1em; font-size: inherit; line-height: inherit; }
+.assistant-message-content :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.4em 0 .6em;
+  font-size: inherit;
+  line-height: 1.5;
+  letter-spacing: normal;
+  font-weight: 700;
+}
+.assistant-message-content > :first-child { margin-top: 0; }
+.assistant-message-content > :last-child { margin-bottom: 0; }
+.assistant-message-content :is(ul, ol) { padding-left: 1.5em; }
+.assistant-message-content li + li { margin-top: .5em; }
+.assistant-message-content li > :last-child { margin-bottom: 0; }
+.assistant-message-content blockquote { padding-left: 1em; border-left: 3px solid var(--border); }
+.assistant-message-content pre { overflow-x: auto; padding: 12px; background: #f5f8f4; border-radius: 6px; }
+.assistant-message-content code { font-size: inherit; }
+.assistant-message-content a { text-underline-offset: 3px; }
+.assistant-messages > li > .banner { margin: 0 0 14px; padding: 10px 12px; background: #f5f8f4; border-radius: 6px; font-size: .9rem; line-height: 1.6; }
+.assistant-messages > li > small { display: block; margin-top: 14px; color: var(--muted); font-size: .8rem; line-height: 1.5; }

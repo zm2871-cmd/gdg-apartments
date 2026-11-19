@@ -47,9 +47,9 @@ export function AssistantPanel({ building, service }: { building: Building; serv
       <p>Each question is answered independently. The assistant does not remember previous questions or answers.</p>
       <p>Your question and public building report are sent to Gemini when available. Avoid including personal information. AI can make mistakes; verify answers against the records and source coverage.</p>
       <ul className="assistant-messages" aria-live="polite">{messages.map(message => <li key={message.id}>
-        <strong>{message.role === 'user' ? 'You' : message.fallback ? 'Records summary' : 'Assistant'}</strong>
+        <strong className="assistant-message-label">{message.role === 'user' ? 'You' : message.fallback ? 'Records summary' : 'Assistant'}</strong>
         {message.fallback && <p className="banner">AI is unavailable. Showing a summary of retrieved records instead.</p>}
-        {message.role === 'assistant' ? <ReactMarkdown skipHtml>{message.text}</ReactMarkdown> : <p>{message.text}</p>}
+        <div className="assistant-message-content">{message.role === 'assistant' ? <ReactMarkdown skipHtml>{message.text}</ReactMarkdown> : <p>{message.text}</p>}</div>
         {message.checkedAt && <small>Records checked {formatDate(message.checkedAt)}</small>}
       </li>)}</ul>
       <form onSubmit={submit}><label htmlFor="assistant-question">Ask about {building.address}</label>
