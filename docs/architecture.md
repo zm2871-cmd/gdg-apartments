@@ -6,7 +6,7 @@ The approved renter interface is a standalone React, TypeScript, and Vite packag
 
 The existing backend runs as part of the root Next.js application. HTTP entry points live in `src/app/api/`, with shared server logic in `src/lib/`, session refresh in `src/proxy.ts`, operational commands in `scripts/`, and database migrations in `supabase/`. The root application also contains an earlier UI that still imports the same report, scoring, and authentication modules.
 
-Each deployable application uses its own npm manifest, lockfile, and environment. The root TypeScript and ESLint configurations exclude `frontend/`, `prototype/`, and `aptsignal-auth/`. Application checks run from their own directories. npm's existing `--prefix` option is sufficient for invoking frontend commands from the root.
+Each deployable application uses its own npm manifest, lockfile, and environment. The root TypeScript and ESLint configurations exclude `frontend/`. Application checks run from their own directories. npm's existing `--prefix` option is sufficient for invoking frontend commands from the root.
 
 ## Directory audit
 
@@ -20,14 +20,14 @@ Each deployable application uses its own npm manifest, lockfile, and environment
 | `docs/` | Documentation | Current architecture and API, data-source, scoring, and lease references |
 | `reference/` | Documentation and supplied design material | Retain original references |
 | `public/` | Existing Next.js assets | Empty in this checkout, used as the embedded-build destination upstream |
-| `aptsignal-auth/` | Separate authentication application, uncertain current integration ownership | Retain complete source, tests, and deployment documentation |
-| `prototype/` | Separate experimental frontend and Gemini route | Retain teammate-owned experiment |
 | `.git/` | Shared version-control metadata | Local repository state |
 | `node_modules/`, `.next/`, `test-results/` | Generated local files | Already ignored, absent from tracked source |
 
-The independent packages also have ignored dependency, build, and test-output directories. The tracked-file audit found no committed `node_modules`, `dist`, `.next`, or test outputs. It identified no application that could be safely deleted based on its references and contribution history.
+The frontend also has ignored dependency, build, and test-output directories. The tracked-file audit found no committed `node_modules`, `dist`, `.next`, or test outputs.
 
-The auth application's workflow is nested inside `aptsignal-auth/.github/`. It belongs to that separately deployable project. There is no root GitHub Actions workflow on this branch.
+Following the folder audit and the repository owner's cleanup request, the unused `aptsignal-auth/` application and `prototype/` experiment were removed. Neither active application imported them. The frontend retains its centralized Supabase OAuth implementation, and the root application retains its own cookie authentication and integrated Gemini advice. The removed source remains in Git history.
+
+There is no root GitHub Actions workflow on this branch.
 
 ## Data flow
 
@@ -58,7 +58,7 @@ The frontend has one centralized Supabase client in `frontend/src/lib/supabase.t
 
 Mock saves use separate storage keys for anonymous visitors and individual Supabase users. API saves send the current bearer token, omit cookies, and guard against changing users during an operation. The root backend currently verifies cookie sessions through `src/lib/db.ts`. Backend maintainers need to add verified bearer-token support and owner authorization before cloud saves work with browser OAuth.
 
-The root app and `aptsignal-auth/` retain their existing cookie-auth flows. They can share a Supabase project and identities with the frontend. Sharing a project does not automatically share cookies or sessions between these applications. Credentials and secrets remain in each app's ignored local environment or deployment configuration.
+The root app retains its existing cookie-auth flow. It can share a Supabase project and identities with the frontend. Sharing a project does not automatically share cookies or sessions between the applications. Credentials and secrets remain in each app's ignored local environment or deployment configuration.
 
 The frontend assistant is currently unavailable. The existing root `/api/advisor` stays deterministic. A separate root `/api/ai/advice` route can call Gemini for a live building report when its server key is configured, with a deterministic fallback. Its implementation is documented in [the Gemini integration notes](gemini-integration.md). The previous architecture document's repository-wide AI-disabled statement predates this route.
 

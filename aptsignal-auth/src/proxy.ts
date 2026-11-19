@@ -1,3 +1,0 @@
-import type {NextRequest} from 'next/server';import {updateSession} from './lib/supabase/proxy';
-export function proxy(request:NextRequest){return updateSession(request);}
-export const config={matcher:['/sign-in','/sign-up','/forgot-password','/verify-email','/update-password','/dashboard/:path*']};

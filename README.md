@@ -15,8 +15,6 @@ gdg-apartments/
 ├── tests/                 Existing Next.js and backend tests
 ├── docs/
 │   └── architecture.md    Ownership, data flow, and backend migration plan
-├── aptsignal-auth/        Separate authentication project retained for its maintainers
-├── prototype/             Separate Gemini experiment retained for its maintainer
 ├── reference/             Original design and project references
 ├── public/                Existing Next.js public-assets directory
 ├── package.json           Existing Next.js/backend commands and dependencies
@@ -111,7 +109,6 @@ Install Chromium with `npm exec --prefix frontend -- playwright install chromium
 
 - Change approved UI, responsive styling, browser authentication, and API adapters in `frontend/`.
 - Coordinate backend changes in `src/app/api/`, `src/lib/`, `src/proxy.ts`, `scripts/`, and `supabase/` with their maintainers. The existing Next.js UI still shares these modules.
-- Review `aptsignal-auth/` and `prototype/` with their maintainers before consolidation. Each has its own manifest and lockfile.
 - Use `docs/` for current integration and ownership information. Preserve `reference/` as source material.
 
-The root TypeScript and ESLint checks exclude the independent applications. Run their checks separately. Generated dependencies, builds, local environments, and test output are ignored by Git.
+The root TypeScript and ESLint checks exclude the independent frontend package. Run its checks separately. Generated dependencies, builds, local environments, and test output are ignored by Git.

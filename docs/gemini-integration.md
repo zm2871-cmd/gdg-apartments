@@ -1,6 +1,6 @@
 # Gemini building advice
 
-The main app was copied from the locally available `origin/main` snapshot (033e511) into `ai-integration` without merging, staging, committing, or pushing. `prototype/` is retained separately.
+The main app was copied from the locally available `origin/main` snapshot (033e511) into `ai-integration` without merging, staging, committing, or pushing. The original `prototype/` experiment was later removed during repository cleanup; the integrated implementation described here remains in the root application.
 
 ## Data and behavior
 
@@ -8,7 +8,7 @@ The building page `/building/[id]` renders `ReportView`, which adds `BuildingAdv
 
 The Gemini context includes identity, record counts, source coverage, and up to 100 most recent evidence records. It explicitly reports omitted records. Counts are not all complaint counts: each evidence record retains its kind and geographic scope. No rent or neighborhood is inferred. Synthetic demo reports are rejected.
 
-The prototype's Hearthstone Hub instructions, model (`gemini-3.5-flash-lite`), two attempts, and 429/503 retry behavior are reused. Each provider request has a 20-second timeout. Missing credentials, empty output, or exhausted/failed attempts produce a labeled deterministic summary from the report. This summary does not purport to answer the user's question. Existing `/api/advisor` comparison behavior and its billing lock remain unchanged.
+The earlier experiment's Hearthstone Hub instructions, model (`gemini-3.5-flash-lite`), two attempts, and 429/503 retry behavior are reused. Each provider request has a 20-second timeout. Missing credentials, empty output, or exhausted/failed attempts produce a labeled deterministic summary from the report. This summary does not purport to answer the user's question. Existing `/api/advisor` comparison behavior and its billing lock remain unchanged.
 
 `GEMINI_API_KEY` is read only in a `server-only` module. No provider errors or credentials are returned to the client. The route reuses existing origin protection, rate limiting and no-store responses. It is public like the building report; account and saved-building authorization are unchanged.
 
@@ -20,14 +20,13 @@ The prototype's Hearthstone Hub instructions, model (`gemini-3.5-flash-lite`), t
 - `src/components/ReportView.tsx`: add panel to live building reports.
 - `src/app/globals.css`: scoped advice styling.
 - `package.json` / `package-lock.json`: Gemini and Markdown dependencies.
-- `tsconfig.json` / `eslint.config.mjs`: exclude independent `prototype/` and `aptsignal-auth/` projects from root checks.
 - `.env.example`: configuration placeholders, no secrets.
 - `tests/unit/building-advice.test.ts`: isolated report and provider mocks.
 
 ## Manual testing
 
-1. Run `npm install` in the repository root. Copy `.env.example` to `.env.local` and configure the existing Supabase settings. Add `GEMINI_API_KEY` only to the root `.env.local` (or server deployment environment); the prototype's environment file is not loaded by the root app.
-2. Run `npm run dev` from the root. Stop the prototype server first if it occupies port 3000, or use `npm run dev -- --port 3100`.
+1. Run `npm install` in the repository root. Copy `.env.example` to `.env.local` and configure the existing Supabase settings. Add `GEMINI_API_KEY` only to the root `.env.local` (or server deployment environment).
+2. Run `npm run dev` from the root. If port 3000 is occupied, use `npm run dev -- --port 3100`.
 3. Search for a real NYC address, open its building report, and use **Ask AI about this building**. Confirm headings, bold labels and lists render correctly and specific claims correspond to report evidence. Reports may have incomplete coverage; that must not be interpreted as absence of problems.
 4. Remove `GEMINI_API_KEY` and restart. Ask again and confirm the labeled records summary appears. Provider failure also takes this path.
 5. Open `/building/demo-1`: the AI form must be absent. Direct API requests for demo IDs must return 400; unknown IDs return 404; blank questions return 400.
