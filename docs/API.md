@@ -1,4 +1,4 @@
-> **Current override: AI is hard-disabled at the owner’s request.** OpenAI call code and SDK have been removed. API keys, environment flags and request consent cannot enable AI. The advisor is deterministic only; older descriptions of optional AI below describe the previous implementation, not current behavior. Re-enabling requires an explicitly authorized code change. Hosting/database/map charges are separate from AI and are not controlled by this lock.
+> **Advisor behavior on this branch.** The comparison endpoint `/api/advisor` returns a deterministic summary. The separate live-building endpoint `/api/ai/advice` can call Gemini when a server-side `GEMINI_API_KEY` is configured. See [the integration notes](gemini-integration.md) and [current architecture](architecture.md) for the two paths.
 
 # API
 
@@ -12,7 +12,8 @@ JSON success values are plain objects. Errors use `{ "error": { "code": "SOURCE_
 | GET /api/buildings/:id/records | category optional, numeric cursor and limit 1–100; `{records,nextCursor}` |
 | GET /api/buildings/:id/trends?window=12 | Window 3/12/36; month counts plus coverage and caveat |
 | POST /api/compare | `{ids:[2–3 unique IDs],weights:{pests,bedbugs,heat,maintenance,noise}}`; scores only shared eligible categories |
-| POST /api/advisor | Same plus `consent`; deterministic by default, authenticated quota for enabled AI |
+| POST /api/advisor | Same building IDs and weights as compare; deterministic comparison summary |
+| POST /api/ai/advice | `{buildingId,question}` for a live report; `{answer,fallback,buildingId,checkedAt}` with a deterministic fallback when Gemini is unavailable |
 | GET /api/saved | Authenticated own buildings and comparisons |
 | POST /api/saved | `{kind:'building'|'comparison',ids,name?}`; real IDs only |
 | DELETE /api/saved | `{kind,id}` removes own saved row |
