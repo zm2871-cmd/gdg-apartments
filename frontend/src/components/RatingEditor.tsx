@@ -1,32 +1,37 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { useWorkspace } from '../app/workspace'
 import { categories, categoryLabels } from '../domain'
 import { defaultPreferences, validatePreferences } from '../services/preferences'
 
 export function RatingEditor() {
-  const { housing, preferences, savePreferences } = useWorkspace()
+  const { housing, session, preferences, savePreferences } = useWorkspace()
   const options = housing.scoring
   const [draft, setDraft] = useState(preferences)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [pending, setPending] = useState(false)
   const id = useId()
   const modes = [
     ['default', 'Default'], ['semi', 'Semi-advanced'], ['advanced', 'Advanced'],
   ] as const
 
+  useEffect(() => setDraft(preferences), [preferences])
+
   return <details className="panel rating-panel">
     <summary><SlidersHorizontal size={19} /><strong>Rating preferences</strong>
       <span>{modes.find(([mode]) => mode === preferences.mode)?.[1]}</span></summary>
-    <form className="rating-body" onSubmit={event => {
+    <form className="rating-body" onSubmit={async event => {
       event.preventDefault()
       setNotice('')
       const validation = validatePreferences(draft, options)
       if (validation) { setError(validation); return }
-      try { savePreferences(draft); setError(''); setNotice('Preferences saved and applied.') }
+      setPending(true)
+      try { await savePreferences(draft); setError(''); setNotice('Preferences saved and applied.') }
       catch (error) { setError(error instanceof Error ? error.message : 'Could not save preferences.') }
+      finally { setPending(false) }
     }}>
-      <p className="muted">{housing.mode === 'mock' ? 'Sample weights adjust the demonstration comparison score.' : 'Weights apply to categories with comparable data.'} Preferences are saved on this device.</p>
+      <p className="muted">{housing.mode === 'mock' ? 'Sample weights adjust the demonstration comparison score. Preferences are saved on this device.' : session ? 'Weights apply to categories with comparable data. Preferences are saved to your account.' : 'Sign in to save your priorities to your account.'}</p>
       <fieldset className="rating-mode"><legend>Weighting mode</legend>
         {modes.map(([mode, label]) => <label key={mode}>
           <input type="radio" name={id + '-mode'} value={mode} checked={draft.mode === mode}
@@ -55,7 +60,7 @@ export function RatingEditor() {
       </div>)}</div>}
       {draft.mode === 'advanced' && <p className="muted">Subcategory weights apply when each selected building has a grade for that subcategory.</p>}
       <div className="action-row preferences-actions">
-        <button className="button primary" type="submit">Save preferences</button>
+        <button className="button primary" type="submit" disabled={pending}>{pending ? 'Saving…' : 'Save preferences'}</button>
         <button className="button secondary" type="button" onClick={() => {
           setDraft(defaultPreferences(options)); setError(''); setNotice('Defaults restored in the editor. Save to apply.')
         }}><RotateCcw size={15} /> Reset to defaults</button>

@@ -1,6 +1,8 @@
 import type {
-  AssistantMessage, Building, BuildingComparison, BuildingReport, RatingPreferences, ScoringOptions,
+  AssistantMessage, Building, BuildingComparison, BuildingReport, CategoryWeights, RatingPreferences, ScoringOptions,
 } from '../domain'
+
+export type AuthSession = { email: string; preferences: CategoryWeights | null }
 
 export interface ScoringService {
   readonly scoring: ScoringOptions
@@ -14,7 +16,8 @@ export interface HousingDataProvider extends ScoringService {
 }
 export interface AuthAdapter {
   readonly available: boolean
-  getSession(signal?: AbortSignal): Promise<{ email: string } | null>
+  getSession(signal?: AbortSignal): Promise<AuthSession | null>
+  savePreferences(weights: CategoryWeights): Promise<void>
   signIn(email: string): Promise<string>
   signOut(): Promise<void>
 }
