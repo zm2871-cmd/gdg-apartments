@@ -2,6 +2,7 @@ import { ArrowRight, ClipboardList, GitCompareArrows, House, MapPin, Search, Shi
 import { Link, useNavigate } from 'react-router-dom'
 import { useWorkspace } from '../app/workspace'
 import { AddressSearch } from '../components/AddressSearch'
+import { Skyline } from '../components/Skyline'
 import { categoryIcons } from '../components/Grades'
 import { GradeBadge } from '../components/ui'
 import { categories, categoryLabels, locality } from '../domain'
@@ -16,10 +17,12 @@ export function HomePage() {
   const mock = housing.mode === 'mock'
   return <>
     <section className="home-hero">
+      <div className="hero-sky" aria-hidden="true"><span /><span /><span /></div>
+      <Skyline className="hero-skyline" />
       <div className="container hero-grid">
         <div className="hero-copy">
-          <p className="eyebrow"><MapPin size={15} /> NYC apartment research</p>
-          <h1>Know the building before you sign the lease.</h1>
+          <p className="eyebrow"><MapPin size={15} /> NYC apartment research · all five boroughs</p>
+          <h1>Know the building <span className="gradient-text">before you sign</span> the lease.</h1>
           <p className="hero-description">Explore NYC building records, neighborhood conditions, and potential apartment concerns before deciding where to live.</p>
           <AddressSearch onSearch={query => navigate('/search?q=' + encodeURIComponent(query))}
             onChoose={async (building, signal) => {
