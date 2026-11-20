@@ -106,8 +106,10 @@ export type BuildingComparison = {
       reason: string | null
       sources: string[]
       measure: 'per_100_units' | 'nearby_200m' | null
+      close?: boolean
       values: { id: string; burden: number | null; evidenceIds: string[] }[]
     }[]
+    priorities?: { usedWeight: number; totalWeight: number; share: number; excluded: GradeCategory[] }
   } | null
 }
 export type AssistantMessage = {

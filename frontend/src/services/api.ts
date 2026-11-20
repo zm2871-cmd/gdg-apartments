@@ -42,9 +42,12 @@ const comparisonSchema = z.object({
     reason: z.string(),
     categories: z.array(z.object({
       category, comparable: z.boolean(), reason: z.string().nullable(), sources: z.array(z.string()),
-      measure: z.enum(['per_100_units', 'nearby_200m']).nullable(),
+      measure: z.enum(['per_100_units', 'nearby_200m']).nullable(), close: z.boolean().optional(),
       values: z.array(z.object({ id, burden: z.number().nullable(), evidenceIds: z.array(id) })),
     })),
+    priorities: z.object({
+      usedWeight: z.number(), totalWeight: z.number(), share: z.number().min(0).max(1), excluded: z.array(category),
+    }).optional(),
   }).nullable().optional(),
 })
 

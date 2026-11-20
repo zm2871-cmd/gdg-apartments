@@ -1,4 +1,4 @@
-import { categories, type Category, type Evidence, type Report, type Score } from '../domain';
+import { categories, labels, type Category, type Evidence, type Report, type Score } from '../domain';
 import { sourceNames } from '../nyc/client';
 
 export const SCORING_CONFIG = {
@@ -6,6 +6,15 @@ export const SCORING_CONFIG = {
   minimumCohort: 100,
   reliability: { violation: 1, inspection: 1, filing: .65, complaint: .25 },
   thresholds: [20, 40, 60, 80, 100],
+  // Shortlist ranking. A category only affects the order when the gap is meaningful:
+  // at least this many weighted records (per 100 units, or nearby within 200 m)...
+  minimumGap: { per_100_units: 1, nearby_200m: 5 },
+  // ...and the larger value is at least this many times the smaller one.
+  minimumRatio: 1.5,
+  // Buildings whose overall scores (0 to 1) differ by less than this are too close to call.
+  overallMargin: .1,
+  // Below this share of the renter's priority weight, no building is recommended.
+  minimumPriorityShare: .5,
 } as const;
 
 export function groupKey(e: Evidence) {
@@ -70,6 +79,8 @@ type CategoryDetail = {
   reason: string | null;
   sources: string[];
   measure: 'per_100_units' | 'nearby_200m' | null;
+  // True when the buildings differ too little for this category to affect the order.
+  close: boolean;
   values: { id: string; burden: number | null; evidenceIds: string[] }[];
 };
 
@@ -101,7 +112,7 @@ function shortlistCategory(reports: Report[], category: Category, weight: number
   if (omitted.length) limitations.push(`Excluded incomplete sources: ${omitted.join(', ')}.`);
   const comparable = !missingSources && !unreliableSize && !uncertainMatch;
   if (!comparable) return {
-    category, comparable: false, reason: limitations.join(' '), sources, measure: null,
+    category, comparable: false, reason: limitations.join(' '), sources, measure: null, close: false,
     values: reports.map(report => ({ id: report.identity.id, burden: null, evidenceIds: [] })),
   };
 
@@ -117,14 +128,21 @@ function shortlistCategory(reports: Report[], category: Category, weight: number
       evidenceIds: events.map(event => event.id),
     };
   });
+  const measure = isNearby ? 'nearby_200m' as const : 'per_100_units' as const;
+  const close = isClose(values.map(value => value.burden!), measure);
   const reason = [
     ...limitations,
     weight === 0 ? 'Your priority weight is zero, so this category does not affect the order.' : '',
     values.every(value => value.burden === 0)
-      ? 'No positive records were returned from the included sources; this does not establish that conditions are problem-free.' : '',
+      ? 'No positive records were returned from the included sources; this does not establish that conditions are problem-free.'
+      : close ? 'About the same across this shortlist: the difference is too small to affect the order.' : '',
   ].filter(Boolean).join(' ') || null;
-  return { category, comparable: true, reason, sources,
-    measure: isNearby ? 'nearby_200m' : 'per_100_units', values };
+  return { category, comparable: true, reason, sources, measure, close, values };
+}
+
+function isClose(burdens: number[], measure: 'per_100_units' | 'nearby_200m') {
+  const max = Math.max(...burdens), min = Math.min(...burdens);
+  return max - min < SCORING_CONFIG.minimumGap[measure] || (min > 0 && max < min * SCORING_CONFIG.minimumRatio);
 }
 
 function compareLive(reports: Report[], weights: Record<Category, number>, now = new Date()) {
@@ -132,35 +150,50 @@ function compareLive(reports: Report[], weights: Record<Category, number>, now =
   const common = categoryDetails.filter(detail => detail.comparable).map(detail => detail.category);
   const missing = categories.filter(category => !common.includes(category));
   const selected = categoryDetails.filter(detail => detail.comparable && weights[detail.category] > 0);
-  const informative = selected.filter(detail =>
-    new Set(detail.values.map(value => value.burden)).size > 1);
-  const totalWeight = informative.reduce((sum, detail) => sum + weights[detail.category], 0);
+  // Only categories with a meaningful gap decide the order.
+  const decisive = selected.filter(detail => !detail.close);
+  const decisiveWeight = decisive.reduce((sum, detail) => sum + weights[detail.category], 0);
   const ranked = reports.map(report => {
-    if (!totalWeight) return { id: report.identity.id, value: null };
-    const value = informative.reduce((sum, detail) => {
-      const unique = [...new Set(detail.values.map(row => row.burden as number))].sort((a, b) => a - b);
+    if (!decisiveWeight) return { id: report.identity.id, value: null };
+    // Each building's share of the worst value in the shortlist (0 to 1), so the size of a gap counts, not just who is ahead.
+    const value = decisive.reduce((sum, detail) => {
+      const max = Math.max(...detail.values.map(row => row.burden as number));
       const buildingValue = detail.values.find(row => row.id === report.identity.id)!.burden as number;
-      return sum + weights[detail.category] * unique.indexOf(buildingValue) / (unique.length - 1);
-    }, 0) / totalWeight;
+      return sum + weights[detail.category] * buildingValue / max;
+    }, 0) / decisiveWeight;
     return { id: report.identity.id, value: round(value) };
   });
-  const minimum = Math.min(...ranked.map(row => row.value ?? Infinity));
-  const winners = ranked.filter(row => row.value !== null && Math.abs(row.value - minimum) < .0001);
-  const status = totalWeight === 0
-    ? selected.some(detail => detail.values.some(value => (value.burden ?? 0) > 0)) ? 'tied' : 'insufficient_evidence'
-    : winners.length === 1 ? 'ranked' : 'tied';
-  const reason = status === 'ranked'
-    ? 'Relative order uses only comparable official records for these selected buildings. Lower points mean fewer weighted recorded signals within this shortlist, not a citywide grade or a prediction of safety.'
-    : status === 'tied'
-      ? 'The selected buildings tie on comparable records after applying your priorities. No single building is recommended.'
-      : 'There are not enough comparable, informative records to order these buildings. Missing records do not prove a building is problem-free.';
+
+  const totalWeight = categories.reduce((sum, category) => sum + weights[category], 0);
+  const usedWeight = selected.reduce((sum, detail) => sum + weights[detail.category], 0);
+  const priorities = {
+    usedWeight, totalWeight,
+    share: totalWeight ? round(usedWeight / totalWeight) : 0,
+    excluded: categories.filter(category => weights[category] > 0 && !common.includes(category)),
+  };
+  const enoughPriorities = priorities.share >= SCORING_CONFIG.minimumPriorityShare;
+
+  const order = ranked.filter(row => row.value !== null).sort((a, b) => a.value! - b.value!);
+  const clearWinner = order.length > 1 && order[1].value! - order[0].value! >= SCORING_CONFIG.overallMargin;
+  const anyRecords = selected.some(detail => detail.values.some(value => (value.burden ?? 0) > 0));
+  const status = !enoughPriorities ? 'insufficient_evidence'
+    : decisiveWeight === 0 ? anyRecords ? 'tied' : 'insufficient_evidence'
+      : clearWinner ? 'ranked' : 'tied';
+  const percent = Math.round(priorities.share * 100);
+  const reason = !enoughPriorities
+    ? `Only ${percent}% of your priority weight could be compared fairly${priorities.excluded.length ? ` (left out: ${priorities.excluded.map(category => labels[category]).join(', ')})` : ''}. That is too little to recommend a building. Missing records do not prove a building is problem-free.`
+    : status === 'ranked'
+      ? 'Relative order uses only comparable official records for these selected buildings, and larger gaps count more than small ones. Lower points mean fewer weighted recorded signals within this shortlist, not a citywide grade or a prediction of safety.'
+      : status === 'tied'
+        ? 'The selected buildings are too close to call on comparable records after applying your priorities. No single building is recommended.'
+        : 'There are not enough comparable, informative records to order these buildings. Missing records do not prove a building is problem-free.';
   return {
     method: 'relative_shortlist' as const,
-    details: { status, reason, categories: categoryDetails },
+    details: { status, reason, priorities, categories: categoryDetails },
     ranked,
     common,
     missing,
-    recommendedBuildingId: status === 'ranked' ? winners[0].id : null,
+    recommendedBuildingId: status === 'ranked' ? order[0].id : null,
   };
 }
 
