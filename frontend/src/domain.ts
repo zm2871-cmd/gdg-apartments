@@ -92,7 +92,7 @@ export type ScoringOptions = {
 }
 export type BuildingComparison = {
   reports: BuildingReport[]
-  weighted: { id: string; value: number | null }[]
+  weighted: { id: string; value: number | null; grade?: Letter | null }[]
   sharedCategories: GradeCategory[]
   missingCategories: GradeCategory[]
   scoreLabel: string
@@ -107,7 +107,7 @@ export type BuildingComparison = {
       sources: string[]
       measure: 'per_100_units' | 'nearby_200m' | null
       close?: boolean
-      values: { id: string; burden: number | null; evidenceIds: string[] }[]
+      values: { id: string; burden: number | null; evidenceIds: string[]; share?: number | null; grade?: Letter | null }[]
     }[]
     priorities?: { usedWeight: number; totalWeight: number; share: number; excluded: GradeCategory[] }
   } | null

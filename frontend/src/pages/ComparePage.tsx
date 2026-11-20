@@ -29,6 +29,7 @@ export default function ComparePage() {
   const result = state.status === 'success' ? state.data : undefined
   const comparison = result && 'reports' in result ? result : undefined
   const reports = comparison?.reports ?? (result && 'building' in result ? [result] : [])
+  const shortlistDetails = comparison?.method === 'relative_shortlist' && reports.length > 1 ? comparison.details ?? undefined : undefined
   const canAdd = selectedIds.length < 3 || !!replace
   const replacement = reports.find(report => report.building.id === replace)
 
@@ -97,6 +98,9 @@ export default function ComparePage() {
             .sort((a, b) => a.value! - b.value!).map(row => <li key={row.id}>
               <Link to={'/building/' + encodeURIComponent(row.id)}>{reports.find(report => report.building.id === row.id)?.building.address ?? row.id}</Link>
             </li>)}</ol>}
+          <p className="grade-legend"><strong>Shortlist grades</strong> compare these buildings with each other only, in five even bands:{' '}
+            {(['A', 'B', 'C', 'D', 'F'] as const).map(letter => <GradeBadge key={letter} letter={letter} />)}{' '}
+            A is the best of your shortlist and F the worst. An F is not a citywide grade.</p>
           <p className="muted">This compares available public records within your shortlist. Fewer recorded issues do not prove a building is safer or problem-free.</p>
           <details><summary>How the ranking was calculated and what records support it</summary>
             {comparison.details.categories.map(detail => <section key={detail.category}>
@@ -129,9 +133,18 @@ export default function ComparePage() {
               <ReportLink id={report.building.id} />
             </div>
             <dl className="comparison-values">
-              <div><dt>Overall grade</dt><dd><GradeBadge letter={report.overall} /></dd></div>
-              {categories.map(category => <div key={category}><dt>{categoryLabels[category]}</dt>
-                <dd><GradeBadge letter={report.grades.find(grade => grade.category === category)?.letter ?? null} /></dd></div>)}
+              {shortlistDetails ? <>
+                <div><dt>Shortlist grade</dt><dd>{(() => {
+                  const grade = comparison!.weighted.find(row => row.id === report.building.id)?.grade
+                  return grade ? <GradeBadge letter={grade} /> : <span className="muted">Not graded</span>
+                })()}</dd></div>
+                {categories.map(category => <div key={category}><dt>{categoryLabels[category]}</dt>
+                  <dd><ShortlistCell detail={shortlistDetails.categories.find(row => row.category === category)} id={report.building.id} /></dd></div>)}
+              </> : <>
+                <div><dt>Overall grade</dt><dd><GradeBadge letter={report.overall} /></dd></div>
+                {categories.map(category => <div key={category}><dt>{categoryLabels[category]}</dt>
+                  <dd><GradeBadge letter={report.grades.find(grade => grade.category === category)?.letter ?? null} /></dd></div>)}
+              </>}
               {comparison && <div><dt>{comparison.method === 'relative_shortlist' ? 'Shortlist order' : comparison.scoreLabel}</dt><dd><strong>
                 {comparison.method === 'relative_shortlist' ? comparison.details?.status === 'ranked'
                   ? (() => { const position = [...comparison.weighted].filter(row => row.value !== null).sort((a, b) => a.value! - b.value!)
@@ -154,4 +167,12 @@ export default function ComparePage() {
         </div>
       </>}
   </div>
+}
+
+type ShortlistCategory = NonNullable<BuildingComparison['details']>['categories'][number]
+
+function ShortlistCell({ detail, id }: { detail?: ShortlistCategory; id: string }) {
+  const grade = detail?.values.find(value => value.id === id)?.grade
+  if (grade) return <GradeBadge letter={grade} />
+  return <span className="muted">{!detail?.comparable ? 'Not compared' : detail.close ? 'About the same' : 'Not a priority'}</span>
 }

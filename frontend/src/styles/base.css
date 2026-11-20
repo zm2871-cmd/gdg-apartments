@@ -128,11 +128,12 @@ svg { flex: 0 0 auto; vertical-align: middle; }
   color: #4d5d53;
   background: #edf0eb;
 }
-.grade-A { color: #125838; background: #dff0e3; }
-.grade-B { color: #305c37; background: #e7f1e3; }
-.grade-C { color: #74520b; background: #fff1d2; }
-.grade-D { color: #9a411d; background: #fcebe1; }
-.grade-E, .grade-F { color: #8e352a; background: #f9e3de; }
+/* Green -> yellow -> red */
+.grade-A { color: #14532d; background: #cdeed6; }
+.grade-B { color: #3d5a0a; background: #e4f2bd; }
+.grade-C { color: #6b5000; background: #fdeeb0; }
+.grade-D { color: #8a3a00; background: #fdd9b8; }
+.grade-E, .grade-F { color: #8e1f1a; background: #f8cfca; }
 
 .site-header { background: #fff; border-bottom: 1px solid var(--border); }
 .header-inner { display: flex; align-items: center; min-height: 67px; gap: clamp(14px, 2.1vw, 30px); }
