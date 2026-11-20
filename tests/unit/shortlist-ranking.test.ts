@@ -4,7 +4,7 @@ import { defaultWeights, type Category, type Coverage, type Evidence, type Ident
 import { sourceNames } from '../../src/lib/nyc/client';
 
 const now = new Date('2026-11-19T12:00:00Z');
-const sources = [sourceNames.violations, sourceNames.bedbugs, sourceNames.rodents, sourceNames.requests];
+const sources = [sourceNames.violations, sourceNames.bedbugs, sourceNames.rodents, sourceNames.requests, sourceNames.noise];
 
 function record(id: string, category: Category, source: string, overrides: Partial<Evidence> = {}): Evidence {
   return {
@@ -26,9 +26,21 @@ function report(id: string, records: Evidence[] = [], identityOverrides: Partial
 }
 
 describe('live shortlist ranking', () => {
+  it('keeps building 311 complaints comparable when only the nearby noise feed is truncated', () => {
+    const a = report('a', [record('a-311-heat', 'heat', sourceNames.requests, { kind: 'complaint', scope: 'tax_lot' })],
+      {}, { [sourceNames.noise]: 'truncated' });
+    const b = report('b');
+    const result = compare([a, b], { ...defaultWeights, heat: 5 }, now);
+    const heat = result.details?.categories.find(row => row.category === 'heat');
+    expect(heat?.sources).toEqual([sourceNames.violations, sourceNames.requests]);
+    expect(heat?.values.find(row => row.id === 'a')?.evidenceIds).toEqual(['a-311-heat']);
+    expect(result.details?.categories.find(row => row.category === 'noise')?.comparable).toBe(false);
+    expect(result.recommendedBuildingId).toBe('b');
+  });
+
   it('changes the order when a renter changes priorities and grounds the reasons in real records', () => {
     const a = report('a', [record('a-heat', 'heat', sourceNames.violations)]);
-    const b = report('b', [record('b-noise', 'noise', sourceNames.requests,
+    const b = report('b', [record('b-noise', 'noise', sourceNames.noise,
       { kind: 'complaint', scope: 'nearby', analysisKey: 'noise:street' })]);
     const heatFirst = compare([a, b], { ...defaultWeights, heat: 5, noise: 1 }, now);
     const noiseFirst = compare([a, b], { ...defaultWeights, heat: 1, noise: 5 }, now);
@@ -50,7 +62,8 @@ describe('live shortlist ranking', () => {
     expect(heat?.sources).toEqual([sourceNames.violations]);
     expect(heat?.reason).toContain(sourceNames.requests);
     expect(heat?.values.find(row => row.id === 'a')?.evidenceIds).toEqual(['a-hpd']);
-    expect(result.missing).toContain('noise');
+    // Nearby noise has its own feed, so a failed building-complaint fetch no longer removes it.
+    expect(result.missing).not.toContain('noise');
     expect(result.recommendedBuildingId).toBe('b');
   });
 
@@ -94,8 +107,8 @@ describe('live shortlist ranking', () => {
     const a = report('a', [
       record('negative-bedbugs', 'bedbugs', sourceNames.bedbugs, { kind: 'filing', positive: false }),
       record('future-bedbugs', 'bedbugs', sourceNames.bedbugs, { kind: 'filing', date: '2030-01-01' }),
-      record('noise-1', 'noise', sourceNames.requests, { kind: 'complaint', scope: 'nearby', analysisKey: 'noise:street' }),
-      record('noise-2', 'noise', sourceNames.requests, { kind: 'complaint', scope: 'nearby', analysisKey: 'noise:street' }),
+      record('noise-1', 'noise', sourceNames.noise, { kind: 'complaint', scope: 'nearby', analysisKey: 'noise:street' }),
+      record('noise-2', 'noise', sourceNames.noise, { kind: 'complaint', scope: 'nearby', analysisKey: 'noise:street' }),
     ]);
     const result = compare([a, report('b')], defaultWeights, now);
     expect(result.details?.categories.find(row => row.category === 'bedbugs')?.values.find(row => row.id === 'a')?.evidenceIds).toEqual([]);

@@ -1,7 +1,7 @@
 import {z} from 'zod';
-export const datasets={registrations:'tesw-yqqr',violations:'wvxf-dwi5',bedbugs:'wz6d-d3jb',rodents:'p937-wjvj',requests:'erm2-nwe9',pluto:'64uk-42ks'} as const;
+export const datasets={registrations:'tesw-yqqr',violations:'wvxf-dwi5',bedbugs:'wz6d-d3jb',rodents:'p937-wjvj',requests:'erm2-nwe9',noise:'erm2-nwe9',pluto:'64uk-42ks'} as const;
 export type Source=keyof typeof datasets;
-export const sourceNames:Record<Source,string>={registrations:'HPD registrations',violations:'HPD violations',bedbugs:'HPD bedbug filings',rodents:'DOHMH rodent inspections',requests:'NYC 311 requests',pluto:'DCP PLUTO'};
+export const sourceNames:Record<Source,string>={registrations:'HPD registrations',violations:'HPD violations',bedbugs:'HPD bedbug filings',rodents:'DOHMH rodent inspections',requests:'NYC 311 requests',noise:'NYC 311 nearby noise',pluto:'DCP PLUTO'};
 export const sourceUrl=(s:Source)=>`https://data.cityofnewyork.us/d/${datasets[s]}`;
 const hosts=new Set(['data.cityofnewyork.us','geosearch.planninglabs.nyc']);
 export async function officialFetch(url:string){const parsed=new URL(url);if(parsed.protocol!=='https:'||!hosts.has(parsed.hostname))throw new Error('Unapproved source');for(let i=0;i<3;i++){try{const r=await fetch(url,{headers:process.env.NYC_SOCRATA_APP_TOKEN&&parsed.hostname==='data.cityofnewyork.us'?{'X-App-Token':process.env.NYC_SOCRATA_APP_TOKEN}:{},signal:AbortSignal.timeout(9000),next:{revalidate:900}});if(r.ok)return await r.json();if(r.status!==429&&r.status<500)throw new Error('Source unavailable');}catch{if(i===2)throw new Error('Source unavailable');}await new Promise(r=>setTimeout(r,250*2**i));}throw new Error('Source unavailable');}

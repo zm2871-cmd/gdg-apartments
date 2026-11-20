@@ -98,8 +98,8 @@ const matchLabels = {
 }
 const kindLabels = { violation: 'Housing violation', inspection: 'Inspection', filing: 'Owner filing', complaint: '311 complaint' }
 const sourceNames: Record<GradeCategory, RegExp> = {
-  maintenance: /violation|311/i, heat: /violation|311/i, pests: /rodent|violation|311/i,
-  bedbugs: /bedbug/i, noise: /311/i,
+  maintenance: /violation|311 requests/i, heat: /violation|311 requests/i, pests: /rodent|violation|311 requests/i,
+  bedbugs: /bedbug/i, noise: /311 nearby noise/i,
 }
 
 function mapReport(value: z.infer<typeof reportSchema>): BuildingReport {
