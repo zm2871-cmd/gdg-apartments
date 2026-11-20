@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Bookmark, ChevronRight, House, Menu, UserRound, X } from 'lucide-react'
+import { Bookmark, ChevronRight, Menu, UserRound, X } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useWorkspace } from '../app/workspace'
 import { AddressSearch } from './AddressSearch'
+import { Skyline, WaterTowerIcon } from './Skyline'
 
 export function Brand() {
-  return <Link className="brand" to="/"><span className="brand-mark"><House size={17} strokeWidth={2.4} /></span>Hearthstone Hub</Link>
+  return <Link className="brand" to="/"><span className="brand-mark"><WaterTowerIcon size={19} /></span>Hearthstone Hub</Link>
 }
 
 export function Layout() {
@@ -50,7 +51,7 @@ export function Layout() {
       <strong>Demonstration · sample data only.</strong> Explore the experience using fictional NYC building reports.
     </div></div>}
     <main id="main" tabIndex={-1}><Outlet /></main>
-    <footer className="site-footer"><div className="container footer-inner">
+    <footer className="site-footer"><Skyline className="footer-skyline" /><div className="container footer-inner">
       <Brand /><Link to="/how-it-works" className="text-link">Sources and limitations <ChevronRight size={16} /></Link>
     </div></footer>
   </>

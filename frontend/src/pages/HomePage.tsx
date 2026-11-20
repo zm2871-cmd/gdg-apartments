@@ -1,7 +1,10 @@
+import type { CSSProperties } from 'react'
 import { ArrowRight, ClipboardList, GitCompareArrows, House, MapPin, Search, ShieldCheck } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useWorkspace } from '../app/workspace'
 import { AddressSearch } from '../components/AddressSearch'
+import { StreetScene } from '../components/StreetScene'
+import { WaterTowerIcon } from '../components/Skyline'
 import { categoryIcons } from '../components/Grades'
 import { GradeBadge } from '../components/ui'
 import { categories, categoryLabels, locality } from '../domain'
@@ -16,10 +19,12 @@ export function HomePage() {
   const mock = housing.mode === 'mock'
   return <>
     <section className="home-hero">
+      <div className="hero-sky" aria-hidden="true"><span /><span /><span /></div>
+      <StreetScene className="hero-street" />
       <div className="container hero-grid">
         <div className="hero-copy">
-          <p className="eyebrow"><MapPin size={15} /> NYC apartment research</p>
-          <h1>Know the building before you sign the lease.</h1>
+          <p className="eyebrow"><MapPin size={15} /> NYC apartment research · all five boroughs</p>
+          <h1>Know the building <span className="gradient-text">before you sign</span> the lease.</h1>
           <p className="hero-description">Explore NYC building records, neighborhood conditions, and potential apartment concerns before deciding where to live.</p>
           <AddressSearch onSearch={query => navigate('/search?q=' + encodeURIComponent(query))}
             onChoose={async (building, signal) => {
@@ -30,13 +35,34 @@ export function HomePage() {
           {mock && <p className="hero-example">Try a sample address <Link to="/search?q=123%20Example%20Street">123 Example Street <ArrowRight size={15} /></Link></p>}
         </div>
         <div className="hero-preview" aria-label="Sample report preview">
-          <div className="preview-top"><span className="preview-icon"><House size={19} /></span><span className="preview-label">Sample report</span></div>
-          <h2>{sample.building.address}</h2>
-          <p className="muted preview-location">{locality(sample.building)}</p>
-          <ul className="preview-grades">{sample.grades.map(({ category, letter }) => {
-            const Icon = categoryIcons[category]
-            return <li key={category}><Icon size={17} /><span>{categoryLabels[category]}</span><GradeBadge letter={letter} /></li>
-          })}</ul>
+          {/* The sample report as a 3D glass walk-up: one floor per category, tinted by its grade.
+              Hovering lifts the floors apart. The water tower and address sign sit on the roof. */}
+          <div className="tower-scene">
+            <div className="tower">
+              <div className="tower-shadow" aria-hidden="true" />
+              <div className="tower-floor tower-lobby" style={{ '--i': 0 } as CSSProperties} aria-hidden="true">
+                <div className="face face-top" />
+                <div className="face face-front"><span className="lobby-door" /></div>
+                <div className="face face-side" />
+              </div>
+              <ol className="tower-floors">{sample.grades.map(({ category, letter }, index) => {
+                const Icon = categoryIcons[category]
+                return <li key={category} className={'tower-floor tint-' + (letter ?? 'none')} style={{ '--i': sample.grades.length - index } as CSSProperties}>
+                  <div className="face face-top" />
+                  <div className="face face-front"><Icon size={14} /><span>{categoryLabels[category]}</span><i className="tower-windows" aria-hidden="true" /></div>
+                  <div className="face face-side"><GradeBadge letter={letter} /></div>
+                </li>
+              })}</ol>
+              <div className="tower-roof" style={{ '--i': sample.grades.length + 1 } as CSSProperties}>
+                <div className="tower-tank" aria-hidden="true"><WaterTowerIcon size={54} /></div>
+              </div>
+            </div>
+            <div className="tower-sign">
+              <span className="tower-pill">Sample report</span>
+              <h2>{sample.building.address}</h2>
+              <p className="preview-location">{locality(sample.building)}</p>
+            </div>
+          </div>
           <Link className="text-link preview-link" to={mock ? '/building/' + sample.building.id : '/how-it-works'}>
             {mock ? 'Explore the sample report' : 'How to read a report'} <ArrowRight size={17} />
           </Link>

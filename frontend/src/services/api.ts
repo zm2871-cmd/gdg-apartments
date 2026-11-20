@@ -35,7 +35,7 @@ const reportSchema = z.object({
 })
 const comparisonSchema = z.object({
   reports: z.array(reportSchema), common: z.array(category), missing: z.array(category),
-  ranked: z.array(z.object({ id, value: z.number().nullable() })),
+  ranked: z.array(z.object({ id, value: z.number().nullable(), grade: letter.nullable().optional() })),
   method: z.enum(['relative_shortlist', 'synthetic_percentile']).optional(),
   details: z.object({
     status: z.enum(['ranked', 'tied', 'insufficient_evidence']),
@@ -43,7 +43,10 @@ const comparisonSchema = z.object({
     categories: z.array(z.object({
       category, comparable: z.boolean(), reason: z.string().nullable(), sources: z.array(z.string()),
       measure: z.enum(['per_100_units', 'nearby_200m']).nullable(), close: z.boolean().optional(),
-      values: z.array(z.object({ id, burden: z.number().nullable(), evidenceIds: z.array(id) })),
+      values: z.array(z.object({
+        id, burden: z.number().nullable(), evidenceIds: z.array(id),
+        share: z.number().min(0).max(1).nullable().optional(), grade: letter.nullable().optional(),
+      })),
     })),
     priorities: z.object({
       usedWeight: z.number(), totalWeight: z.number(), share: z.number().min(0).max(1), excluded: z.array(category),

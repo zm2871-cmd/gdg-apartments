@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compare, score } from '../../src/lib/scoring';
+import { compare, score, shortlistGrade } from '../../src/lib/scoring';
 import { defaultWeights, type Category, type Coverage, type Evidence, type Identity, type Report } from '../../src/lib/domain';
 import { sourceNames } from '../../src/lib/nyc/client';
 
@@ -26,6 +26,10 @@ function report(id: string, records: Evidence[] = [], identityOverrides: Partial
 }
 
 describe('live shortlist ranking', () => {
+  it('splits shortlist scores into five even letter bands', () => {
+    expect([0, .19, .2, .39, .4, .59, .6, .79, .8, 1].map(shortlistGrade)).toEqual(['A', 'A', 'B', 'B', 'C', 'C', 'D', 'D', 'F', 'F']);
+  });
+
 
   const violations = (prefix: string, category: Category, count: number) =>
     Array.from({ length: count }, (_, i) => record(`${prefix}-${i}`, category, sourceNames.violations));
@@ -37,9 +41,13 @@ describe('live shortlist ranking', () => {
     const b = report('b', [...violations('b-maint', 'maintenance', 5), ...violations('b-heat', 'heat', 1)], { lotUnits: 100 }); // 15 and 3
     const result = compare([a, b], heatAndMaintenance, now);
     // Previously a tie (each building worse in one category). Now a's maintenance gap is half as large as b's heat gap.
-    expect(result.ranked).toEqual([{ id: 'a', value: .5 }, { id: 'b', value: .75 }]);
+    expect(result.ranked).toEqual([{ id: 'a', value: .5, grade: 'C' }, { id: 'b', value: .75, grade: 'D' }]);
     expect(result.details?.status).toBe('ranked');
     expect(result.recommendedBuildingId).toBe('a');
+    const maintenance = result.details?.categories.find(row => row.category === 'maintenance');
+    expect(maintenance?.values.map(row => [row.id, row.share, row.grade])).toEqual([['a', 1, 'F'], ['b', .5, 'C']]);
+    // Categories that did not affect the order get no grade.
+    expect(result.details?.categories.find(row => row.category === 'pests')?.values.every(row => row.grade === null)).toBe(true);
   });
 
   it('treats a tiny difference as about the same instead of naming a winner', () => {
@@ -81,6 +89,7 @@ describe('live shortlist ranking', () => {
     expect(result.details?.reason).toContain('Only 17% of your priority weight');
     expect(result.details?.reason).toContain('Nearby noise');
     expect(result.recommendedBuildingId).toBeNull();
+    expect(result.ranked.every(row => row.grade === null)).toBe(true);
     const heatFirst = compare([a, b], { pests: 0, bedbugs: 0, maintenance: 0, heat: 5, noise: 1 }, now);
     expect(heatFirst.details?.priorities?.share).toBe(.8333);
     expect(heatFirst.recommendedBuildingId).toBe('b');

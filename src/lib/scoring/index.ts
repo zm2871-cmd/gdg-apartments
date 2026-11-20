@@ -15,7 +15,17 @@ export const SCORING_CONFIG = {
   overallMargin: .1,
   // Below this share of the renter's priority weight, no building is recommended.
   minimumPriorityShare: .5,
+  // Shortlist grades: the 0-1 score split into five even bands (A best, F worst).
+  shortlistGrades: ['A', 'B', 'C', 'D', 'F'],
 } as const;
+
+export type ShortlistGrade = typeof SCORING_CONFIG.shortlistGrades[number];
+
+/** Letter for a 0-1 shortlist score: under 0.2 is A, 0.2 to under 0.4 is B, and so on; 0.8 and above is F. */
+export function shortlistGrade(score: number): ShortlistGrade {
+  const grades = SCORING_CONFIG.shortlistGrades;
+  return grades[Math.min(grades.length - 1, Math.floor(score * grades.length + 1e-9))];
+}
 
 export function groupKey(e: Evidence) {
   return e.kind === 'complaint'
@@ -81,7 +91,9 @@ type CategoryDetail = {
   measure: 'per_100_units' | 'nearby_200m' | null;
   // True when the buildings differ too little for this category to affect the order.
   close: boolean;
-  values: { id: string; burden: number | null; evidenceIds: string[] }[];
+  // share: this building's value divided by the worst in the shortlist (0-1), and its grade.
+  // Both are null when the category did not affect the order (not comparable, about the same, or zero priority).
+  values: { id: string; burden: number | null; evidenceIds: string[]; share?: number | null; grade?: ShortlistGrade | null }[];
 };
 
 const round = (value: number) => Math.round(value * 10000) / 10000;
@@ -153,14 +165,19 @@ function compareLive(reports: Report[], weights: Record<Category, number>, now =
   // Only categories with a meaningful gap decide the order.
   const decisive = selected.filter(detail => !detail.close);
   const decisiveWeight = decisive.reduce((sum, detail) => sum + weights[detail.category], 0);
+  // Each building's share of the worst value in the shortlist (0 to 1), so the size of a gap counts, not just who is ahead.
+  const graded = categoryDetails.map(detail => {
+    if (!decisive.includes(detail)) return { ...detail, values: detail.values.map(row => ({ ...row, share: null, grade: null })) };
+    const max = Math.max(...detail.values.map(row => row.burden as number));
+    return { ...detail, values: detail.values.map(row => {
+      const share = round(row.burden as number / max);
+      return { ...row, share, grade: shortlistGrade(share) };
+    }) };
+  });
   const ranked = reports.map(report => {
     if (!decisiveWeight) return { id: report.identity.id, value: null };
-    // Each building's share of the worst value in the shortlist (0 to 1), so the size of a gap counts, not just who is ahead.
-    const value = decisive.reduce((sum, detail) => {
-      const max = Math.max(...detail.values.map(row => row.burden as number));
-      const buildingValue = detail.values.find(row => row.id === report.identity.id)!.burden as number;
-      return sum + weights[detail.category] * buildingValue / max;
-    }, 0) / decisiveWeight;
+    const value = graded.filter(detail => detail.values[0].share !== null).reduce((sum, detail) =>
+      sum + weights[detail.category] * detail.values.find(row => row.id === report.identity.id)!.share!, 0) / decisiveWeight;
     return { id: report.identity.id, value: round(value) };
   });
 
@@ -189,8 +206,9 @@ function compareLive(reports: Report[], weights: Record<Category, number>, now =
         : 'There are not enough comparable, informative records to order these buildings. Missing records do not prove a building is problem-free.';
   return {
     method: 'relative_shortlist' as const,
-    details: { status, reason, priorities, categories: categoryDetails },
-    ranked,
+    details: { status, reason, priorities, categories: graded },
+    // Overall shortlist grade, withheld when too little of the renter's priorities could be compared.
+    ranked: ranked.map(row => ({ ...row, grade: row.value === null || status === 'insufficient_evidence' ? null : shortlistGrade(row.value) })),
     common,
     missing,
     recommendedBuildingId: status === 'ranked' ? order[0].id : null,
@@ -201,7 +219,7 @@ function compareSynthetic(reports: Report[], weights: Record<Category, number>) 
   const common = categories.filter(category =>
     reports.length >= 2 && reports.every(report => report.scores.find(score => score.category === category)?.percentile != null));
   const total = common.reduce((sum, category) => sum + weights[category], 0);
-  const ranked = reports.map(report => ({ id: report.identity.id,
+  const ranked = reports.map(report => ({ id: report.identity.id, grade: null,
     value: total ? common.reduce((sum, category) =>
       sum + report.scores.find(score => score.category === category)!.percentile! * weights[category], 0) / total : null }));
   return {

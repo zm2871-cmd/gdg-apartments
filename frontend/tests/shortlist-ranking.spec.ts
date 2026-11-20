@@ -29,10 +29,15 @@ test('ranks selected saved buildings and shows the records behind the order', as
     requests.push(route.request().postDataJSON())
     return route.fulfill({ json: {
       reports: [report(first), report(second)], common: ['heat'], missing: ['maintenance', 'pests', 'bedbugs', 'noise'],
-      ranked: [{ id: first, value: 1 }, { id: second, value: 0 }], method: 'relative_shortlist',
+      ranked: [{ id: first, value: 1, grade: 'F' }, { id: second, value: 0, grade: 'A' }], method: 'relative_shortlist',
       details: { status: 'ranked', reason: 'Relative order uses comparable official records.', categories: [{
         category: 'heat', comparable: true, reason: null, sources: ['HPD violations'], measure: 'per_100_units',
-        values: [{ id: first, burden: 2, evidenceIds: ['violations:heat-1'] }, { id: second, burden: 0, evidenceIds: [] }],
+        values: [{ id: first, burden: 2, evidenceIds: ['violations:heat-1'], share: 1, grade: 'F' },
+          { id: second, burden: 0, evidenceIds: [], share: 0, grade: 'A' }],
+      }, {
+        category: 'pests', comparable: true, close: true, reason: 'About the same across this shortlist.', sources: ['HPD violations'],
+        measure: 'per_100_units', values: [{ id: first, burden: .2, evidenceIds: [], share: null, grade: null },
+          { id: second, burden: 0, evidenceIds: [], share: null, grade: null }],
       }] },
     } })
   })
@@ -60,6 +65,14 @@ test('ranks selected saved buildings and shows the records behind the order', as
   await expect(summary.getByText('Compared: Heat & hot water.')).toBeVisible()
   await expect(summary.getByText(/Left out:.*Nearby noise/)).toBeVisible()
   await expect(summary.locator('ol li').first()).toContainText('2 Second Street')
+  await expect(summary.locator('.grade-legend')).toContainText('An F is not a citywide grade.')
+  const [firstCard, secondCard] = [page.locator('.compare-building').filter({ hasText: '1 First Street' }), page.locator('.compare-building').filter({ hasText: '2 Second Street' })]
+  for (const [card, grade] of [[firstCard, 'F'], [secondCard, 'A']] as const) {
+    await expect(card.locator('div', { hasText: 'Shortlist grade' }).getByRole('img', { name: 'Grade ' + grade })).toBeVisible()
+    await expect(card.locator('div', { hasText: 'Heat & hot water' }).last().getByRole('img', { name: 'Grade ' + grade })).toBeVisible()
+    await expect(card.locator('div', { hasText: 'Pests' }).last()).toContainText('About the same')
+    await expect(card.locator('div', { hasText: 'Bedbugs' }).last()).toContainText('Not compared')
+  }
   await summary.getByText('How the ranking was calculated and what records support it').click()
   await expect(summary.getByText('Heat violation reported')).toBeVisible()
   await expect(summary.getByRole('link', { name: 'HPD violations' })).toHaveAttribute('href', 'https://data.cityofnewyork.us/d/wvxf-dwi5')
