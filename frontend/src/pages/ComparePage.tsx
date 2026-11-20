@@ -85,6 +85,10 @@ export default function ComparePage() {
         {comparison?.method === 'relative_shortlist' && comparison.details && <section className="panel compare-summary" aria-labelledby="compare-summary-title">
           <h2 id="compare-summary-title">Your shortlist, based on recorded issues</h2>
           <p>{comparison.details.reason}</p>
+          {comparison.details.priorities && comparison.details.priorities.totalWeight > 0 && <p><strong>Your priorities used:</strong>{' '}
+            {Math.round(comparison.details.priorities.share * 100)}% of your priority weight could be compared
+            {comparison.details.priorities.excluded.length > 0 && <> (not {comparison.details.priorities.excluded
+              .map(category => categoryLabels[category]).join(', ')})</>}.</p>}
           <p><strong>Compared:</strong> {comparison.sharedCategories.length
             ? comparison.sharedCategories.map(category => categoryLabels[category]).join(', ') : 'No categories with comparable records'}.</p>
           {comparison.missingCategories.length > 0 && <p><strong>Left out:</strong> {comparison.missingCategories
@@ -96,7 +100,7 @@ export default function ComparePage() {
           <p className="muted">This compares available public records within your shortlist. Fewer recorded issues do not prove a building is safer or problem-free.</p>
           <details><summary>How the ranking was calculated and what records support it</summary>
             {comparison.details.categories.map(detail => <section key={detail.category}>
-              <h3>{categoryLabels[detail.category]}</h3>
+              <h3>{categoryLabels[detail.category]}{detail.comparable && detail.close && <span className="muted"> · about the same</span>}</h3>
               {!detail.comparable ? <p>{detail.reason ?? 'There is not enough comparable evidence for this category.'}</p> : <>
                 {detail.reason && <p>{detail.reason}</p>}
                 <p>{detail.measure === 'per_100_units' ? 'Recorded issue burden per 100 units' : 'Recorded nearby noise within 200 meters'} · {detail.sources.join(', ')}</p>

@@ -26,6 +26,65 @@ function report(id: string, records: Evidence[] = [], identityOverrides: Partial
 }
 
 describe('live shortlist ranking', () => {
+
+  const violations = (prefix: string, category: Category, count: number) =>
+    Array.from({ length: count }, (_, i) => record(`${prefix}-${i}`, category, sourceNames.violations));
+  const heatAndMaintenance = { ...defaultWeights, pests: 0, bedbugs: 0, noise: 0 };
+
+  it('counts the size of a gap, not just which building is ahead', () => {
+    // 100 units, so each recent class B violation adds 3 per 100 units.
+    const a = report('a', violations('a-maint', 'maintenance', 10), { lotUnits: 100 });          // maintenance 30
+    const b = report('b', [...violations('b-maint', 'maintenance', 5), ...violations('b-heat', 'heat', 1)], { lotUnits: 100 }); // 15 and 3
+    const result = compare([a, b], heatAndMaintenance, now);
+    // Previously a tie (each building worse in one category). Now a's maintenance gap is half as large as b's heat gap.
+    expect(result.ranked).toEqual([{ id: 'a', value: .5 }, { id: 'b', value: .75 }]);
+    expect(result.details?.status).toBe('ranked');
+    expect(result.recommendedBuildingId).toBe('a');
+  });
+
+  it('treats a tiny difference as about the same instead of naming a winner', () => {
+    const a = report('a', [record('a-311', 'heat', sourceNames.requests, { kind: 'complaint', scope: 'tax_lot', severity: 1 })], { lotUnits: 100 });
+    const result = compare([a, report('b', [], { lotUnits: 100 })], heatAndMaintenance, now);
+    const heat = result.details?.categories.find(row => row.category === 'heat');
+    expect(heat?.close).toBe(true);
+    expect(heat?.reason).toContain('About the same');
+    expect(result.details?.status).toBe('tied');
+    expect(result.recommendedBuildingId).toBeNull();
+  });
+
+  it('treats similar non-zero values as about the same', () => {
+    const a = report('a', violations('a-heat', 'heat', 5), { lotUnits: 100 });  // 15
+    const b = report('b', violations('b-heat', 'heat', 4), { lotUnits: 100 });  // 12, less than 1.5x apart
+    const result = compare([a, b], heatAndMaintenance, now);
+    expect(result.details?.categories.find(row => row.category === 'heat')?.close).toBe(true);
+    expect(result.recommendedBuildingId).toBeNull();
+  });
+
+  it('calls buildings too close when their overall scores are nearly equal', () => {
+    const a = report('a', [...violations('a-maint', 'maintenance', 10), ...violations('a-heat', 'heat', 5)], { lotUnits: 100 });
+    const b = report('b', [...violations('b-maint', 'maintenance', 5), ...violations('b-heat', 'heat', 10)], { lotUnits: 100 });
+    const c = report('c', [...violations('c-maint', 'maintenance', 5), ...violations('c-heat', 'heat', 5)], { lotUnits: 100 });
+    const result = compare([a, b, c], heatAndMaintenance, now);
+    expect(result.ranked.find(row => row.id === 'c')?.value).toBe(.5);
+    expect(result.details?.status).toBe('ranked');
+    const nearTie = compare([a, b], heatAndMaintenance, now);
+    expect(nearTie.details?.status).toBe('tied');
+    expect(nearTie.details?.reason).toContain('too close to call');
+  });
+
+  it('withholds a recommendation when most of the renter\'s priority weight cannot be compared', () => {
+    const a = report('a', violations('a-heat', 'heat', 5));
+    const b = report('b', [], {}, { [sourceNames.noise]: 'truncated' });
+    const result = compare([a, b], { pests: 0, bedbugs: 0, maintenance: 0, heat: 1, noise: 5 }, now);
+    expect(result.details?.priorities).toEqual({ usedWeight: 1, totalWeight: 6, share: .1667, excluded: ['noise'] });
+    expect(result.details?.status).toBe('insufficient_evidence');
+    expect(result.details?.reason).toContain('Only 17% of your priority weight');
+    expect(result.details?.reason).toContain('Nearby noise');
+    expect(result.recommendedBuildingId).toBeNull();
+    const heatFirst = compare([a, b], { pests: 0, bedbugs: 0, maintenance: 0, heat: 5, noise: 1 }, now);
+    expect(heatFirst.details?.priorities?.share).toBe(.8333);
+    expect(heatFirst.recommendedBuildingId).toBe('b');
+  });
   it('keeps building 311 complaints comparable when only the nearby noise feed is truncated', () => {
     const a = report('a', [record('a-311-heat', 'heat', sourceNames.requests, { kind: 'complaint', scope: 'tax_lot' })],
       {}, { [sourceNames.noise]: 'truncated' });
@@ -40,8 +99,9 @@ describe('live shortlist ranking', () => {
 
   it('changes the order when a renter changes priorities and grounds the reasons in real records', () => {
     const a = report('a', [record('a-heat', 'heat', sourceNames.violations)]);
-    const b = report('b', [record('b-noise', 'noise', sourceNames.noise,
-      { kind: 'complaint', scope: 'nearby', analysisKey: 'noise:street' })]);
+    // 30 distinct nearby complaints: a large enough gap to matter (one complaint would be "about the same").
+    const b = report('b', Array.from({ length: 30 }, (_, i) => record(i ? `b-noise-${i}` : 'b-noise', 'noise', sourceNames.noise,
+      { kind: 'complaint', scope: 'nearby', analysisKey: `noise:street:${i}` })));
     const heatFirst = compare([a, b], { ...defaultWeights, heat: 5, noise: 1 }, now);
     const noiseFirst = compare([a, b], { ...defaultWeights, heat: 1, noise: 5 }, now);
     expect(heatFirst.method).toBe('relative_shortlist');
@@ -49,7 +109,7 @@ describe('live shortlist ranking', () => {
     expect(noiseFirst.recommendedBuildingId).toBe('a');
     expect(heatFirst.details?.status).toBe('ranked');
     expect(heatFirst.details?.categories.find(row => row.category === 'heat')?.values.find(row => row.id === 'a')?.evidenceIds).toEqual(['a-heat']);
-    expect(heatFirst.details?.categories.find(row => row.category === 'noise')?.values.find(row => row.id === 'b')?.evidenceIds).toEqual(['b-noise']);
+    expect(heatFirst.details?.categories.find(row => row.category === 'noise')?.values.find(row => row.id === 'b')?.evidenceIds).toContain('b-noise');
     expect(heatFirst.ranked.every(row => row.value === null || row.value >= 0 && row.value <= 1)).toBe(true);
   });
 
