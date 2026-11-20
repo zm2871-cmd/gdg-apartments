@@ -61,7 +61,7 @@ const sourcesByCategory: Record<Category, string[]> = {
   bedbugs: [sourceNames.bedbugs],
   heat: [sourceNames.violations, sourceNames.requests],
   maintenance: [sourceNames.violations, sourceNames.requests],
-  noise: [sourceNames.requests],
+  noise: [sourceNames.noise],
 };
 
 type CategoryDetail = {

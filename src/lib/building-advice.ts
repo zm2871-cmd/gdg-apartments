@@ -2,16 +2,39 @@ import 'server-only';
 import {GoogleGenAI} from '@google/genai';
 import {categories, labels, type Report} from './domain';
 
+const BUILDING_RECORD_LIMIT = 150;
+const NEARBY_EXAMPLE_LIMIT = 10;
+const kinds = ['violation', 'inspection', 'filing', 'complaint'] as const;
+
+// Building and tax-lot records come first, each category is counted by record type, and nearby noise is summarized.
+// Otherwise a busy block's noise complaints fill the model's context and hide the building's own records.
 export function reportContext(report: Report) {
-  const records = [...report.records].sort((a,b) => b.date.localeCompare(a.date)).slice(0,100);
+  const byDate = [...report.records].sort((a,b) => b.date.localeCompare(a.date));
+  const building = byDate.filter(r => r.scope !== 'nearby');
+  const nearby = byDate.filter(r => r.scope === 'nearby');
+  const buildingRecords = building.slice(0, BUILDING_RECORD_LIMIT);
+  const nearbyByType = new Map<string, number>();
+  for (const r of nearby) nearbyByType.set(r.description, (nearbyByType.get(r.description) ?? 0) + 1);
   return {
     identity: report.identity,
     checkedAt: report.checkedAt,
     coverage: report.coverage,
     totalRecords: report.records.length,
-    counts: categories.map(category => ({category, count: report.records.filter(r => r.category === category).length})),
-    records,
-    omittedRecords: report.records.length - records.length,
+    counts: categories.map(category => {
+      const own = building.filter(r => r.category === category);
+      return {
+        category,
+        buildingOrTaxLot: Object.fromEntries(kinds.map(kind => [kind, own.filter(r => r.kind === kind).length])),
+        nearby: nearby.filter(r => r.category === category).length,
+      };
+    }),
+    buildingRecords,
+    omittedBuildingRecords: building.length - buildingRecords.length,
+    nearbyComplaints: {
+      total: nearby.length,
+      byType: [...nearbyByType].map(([type, count]) => ({type, count})).sort((a,b) => b.count - a.count),
+      recentExamples: nearby.slice(0, NEARBY_EXAMPLE_LIMIT),
+    },
   };
 }
 
@@ -45,6 +68,7 @@ Then give only the most relevant supporting evidence from the supplied report, p
 Aim for about 150–250 words for most questions. Simple questions can be shorter; complex questions may be longer when needed to answer accurately. Do not pad the answer to meet a word count.
 Use short paragraphs and, when helpful, a few bullets (usually no more than three to five). Use Markdown bold sparingly for important findings. Avoid headings for ordinary answers; use them only when a complex answer needs structure. Do not repeat the same finding or disclaimer.
 Only add a practical next step or landlord question when it helps answer the renter's question.
+How the report is organized: \`counts\` has exact totals per category, split into building or tax-lot records by type (violation, inspection, filing, complaint) and nearby records. Take any number you state from \`counts\`, and never merge types: violations and inspections are not complaints. \`buildingRecords\` lists the building's and tax lot's own records, newest first. \`nearbyComplaints\` summarizes 311 complaints within about 200 meters; that is neighborhood context, not a building condition.
 Use only the supplied building report for building-specific facts. Never invent rent prices, neighborhood, repair histories, resolutions, amenities, legal compliance, or current conditions. Do not interpret a record's positive flag or status as proof of completed repairs without explicit supporting evidence.
 Distinguish reported complaints from official violations, inspections and owner filings. Respect building, tax-lot and nearby scope; do not attribute nearby concerns to the building or building-wide concerns to a specific apartment.
 Use supplied record IDs internally to ground claims, but explain the evidence naturally in the answer. Counts alone do not establish severity, recurring problems, comparative risk, safety, or absence of issues. Do not label a count high or low without a supported comparison.
