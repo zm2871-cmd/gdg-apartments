@@ -1,3 +1,48 @@
-import {z} from 'zod';import {session} from '@/lib/db';import {guard,json,failure} from '@/lib/security';
-export async function POST(req:Request){try{guard(req);const {email}=z.object({email:z.email().max(254)}).parse(await req.json());const db=await session();if(!db)throw new Error('AUTH_UNAVAILABLE');const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:`${process.env.NEXT_PUBLIC_SITE_URL||new URL(req.url).origin}/auth/callback`}});if(error)throw new Error('AUTH_UNAVAILABLE');return json({message:'Check your email for a secure sign-in link.'});}catch(e){return failure(e);}}
-export async function DELETE(req:Request){try{guard(req);const db=await session();await db?.auth.signOut();return json({signedOut:true});}catch(e){return failure(e);}}
+import {z} from 'zod';
+import {NextResponse} from 'next/server';
+import {session} from '@/lib/db';
+import {guard,json,failure} from '@/lib/security';
+
+export async function POST(req:Request){
+  try{
+    guard(req);
+    const {email}=z.object({email:z.email().max(254)}).parse(await req.json());
+    const db=await session();
+    if(!db)throw new Error('AUTH_UNAVAILABLE');
+    const {error}=await db.auth.signInWithOtp({
+      email,
+      options:{emailRedirectTo:`${process.env.NEXT_PUBLIC_SITE_URL||new URL(req.url).origin}/auth/callback`},
+    });
+    if(error)throw new Error('AUTH_UNAVAILABLE');
+    return json({message:'Check your email for a six-digit sign-in code.'});
+  }catch(e){return failure(e);}
+}
+
+export async function PUT(req:Request){
+  try{
+    guard(req);
+    const {email,token}=z.object({
+      email:z.email().max(254),
+      token:z.string().regex(/^\d{6}$/),
+    }).parse(await req.json());
+    const db=await session();
+    if(!db)throw new Error('AUTH_UNAVAILABLE');
+    const {error}=await db.auth.verifyOtp({email,token,type:'email'});
+    if(error){
+      return NextResponse.json(
+        {error:{code:'INVALID_OTP',message:'That code is invalid or expired. Request a new code.'}},
+        {status:400,headers:{'Cache-Control':'no-store'}},
+      );
+    }
+    return json({signedIn:true});
+  }catch(e){return failure(e);}
+}
+
+export async function DELETE(req:Request){
+  try{
+    guard(req);
+    const db=await session();
+    await db?.auth.signOut();
+    return json({signedOut:true});
+  }catch(e){return failure(e);}
+}
